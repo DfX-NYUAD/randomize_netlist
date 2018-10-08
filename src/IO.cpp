@@ -136,16 +136,16 @@ void IO::parseCells(Data& data) {
 		for (auto const& cell_iter : data.cells) {
 			Data::Cell const& cell = cell_iter.second;
 
-			std::cout << "IO_DBG>  " << cell.type;
+			std::cout << "IO_DBG>  \"" << cell.type << "\"";
 
 			std::cout << " OUT = ( ";
 			for (auto const& output : cell.outputs) {
-				std::cout << output << " ";
+				std::cout << "\"" << output << "\" ";
 			}
 			std::cout << ")";
 			std::cout << " IN = ( ";
 			for (auto const& input : cell.inputs) {
-				std::cout << input << " ";
+				std::cout << "\"" << input << "\" ";
 			}
 			std::cout << ")";
 
@@ -210,7 +210,7 @@ void IO::parseNetlist(Data& data) {
 
 		for (auto const& port : data.netlist.inputs) {
 
-			std::cout << "IO_DBG>  " << port;
+			std::cout << "IO_DBG>  \"" << port << "\"";
 			std::cout << std::endl;
 		}
 	}
@@ -250,7 +250,7 @@ void IO::parseNetlist(Data& data) {
 
 		for (auto const& port : data.netlist.outputs) {
 
-			std::cout << "IO_DBG>  " << port;
+			std::cout << "IO_DBG>  \"" << port << "\"";
 			std::cout << std::endl;
 		}
 	}
@@ -290,7 +290,7 @@ void IO::parseNetlist(Data& data) {
 
 		for (auto const& wire : data.netlist.wires) {
 
-			std::cout << "IO_DBG>  " << wire;
+			std::cout << "IO_DBG>  \"" << wire << "\"";
 			std::cout << std::endl;
 		}
 	}
@@ -352,9 +352,14 @@ void IO::parseNetlist(Data& data) {
 					size_t pos_begin = line.find_last_of("(") + 1;
 					size_t pos_end = line.find_first_of(")");
 
+					// remove heading/trailing whitespaces, if any, using stream operation
+					std::string connected;
+					std::istringstream connected_stream(line.substr(pos_begin, pos_end - pos_begin));
+					connected_stream >> connected;
+
 					new_gate.outputs.insert(std::make_pair(
 								pin,
-								line.substr(pos_begin, pos_end - pos_begin)
+								connected
 							));
 
 					break;
@@ -370,9 +375,14 @@ void IO::parseNetlist(Data& data) {
 					size_t pos_begin = line.find_last_of("(") + 1;
 					size_t pos_end = line.find_first_of(")");
 
+					// remove heading/trailing whitespaces, if any, using stream operation
+					std::string connected;
+					std::istringstream connected_stream(line.substr(pos_begin, pos_end - pos_begin));
+					connected_stream >> connected;
+
 					new_gate.inputs.insert(std::make_pair(
 								pin,
-								line.substr(pos_begin, pos_end - pos_begin)
+								connected
 							));
 
 					break;
@@ -402,16 +412,16 @@ void IO::parseNetlist(Data& data) {
 
 		for (Data::Gate const& gate : data.netlist.gates) {
 
-			std::cout << "IO_DBG>  " << gate.type << " " << gate.name;
+			std::cout << "IO_DBG>  \"" << gate.type << "\" \"" << gate.name << "\"";
 
 			std::cout << " OUT = ( ";
 			for (auto const& output : gate.outputs) {
-				std::cout << output.first << ": " << output.second << " ";
+				std::cout << "\"" << output.first << "\": \"" << output.second << "\" ";
 			}
 			std::cout << ")";
 			std::cout << " IN = ( ";
 			for (auto const& input : gate.inputs) {
-				std::cout << input.first << ": " << input.second << " ";
+				std::cout << "\"" << input.first << "\": \"" << input.second << "\" ";
 			}
 			std::cout << ")";
 

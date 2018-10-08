@@ -9,6 +9,7 @@ class Randomize {
 	private:
 		/// debugging code switch (private)
 		static constexpr bool DBG = false;
+		static constexpr bool DBG_VERBOSE = false;
 
 	// private data, functions
 	private:

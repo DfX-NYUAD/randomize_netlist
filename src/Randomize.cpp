@@ -41,6 +41,12 @@ int main (int argc, char** argv) {
 	//
 	Randomize::initGraph(data.netlist.nodes, data);
 
+	// sanity check for cycles on original graph
+	if (Randomize::checkGraphForCycles(&(data.netlist.nodes[data.globalNodeNames.source]))) {
+		std::cout << "Randomize> Error: original netlist contains a cycle; exiting ..." << std::endl;
+		exit(1);
+	}
+
 	// iteratively run modifications, until HD approaches 50%
 	//
 	iter = 0;
@@ -390,6 +396,9 @@ double Randomize::iteration(Data& data) {
 	if (Randomize::DBG) {
 		std::cout << "DBG> Randomize trial SUCCESS" << std::endl;
 	}
+
+	// TODO return HD
+	return 0.0;
 }
 
 bool Randomize::checkGraphForCycles(Data::Node const* node) {
@@ -468,7 +477,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Data const& data) {
 
 	if (Randomize::DBG) {
-		std::cout << "Randomize> Initializing the graph ..." << std::endl;
+		std::cout << "DBG> Initializing the graph ..." << std::endl;
 	}
 
 	// add global sink/source as nodes
@@ -481,6 +490,17 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 				Data::Node(data.globalNodeNames.sink)
 			));
 
+	// sanity check whether nodes had been inserted / can be found
+	if (Randomize::DBG) {
+
+		if (nodes.find(data.globalNodeNames.source) == nodes.end()) {
+			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << data.globalNodeNames.source << "\"" << std::endl;
+		}
+		if (nodes.find(data.globalNodeNames.sink) == nodes.end()) {
+			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << data.globalNodeNames.sink << "\"" << std::endl;
+		}
+	}
+
 	// add inputs as nodes
 	// 
 	for (auto const& input : data.netlist.inputs) {
@@ -489,6 +509,13 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 					input,
 					Data::Node(input)
 				));
+
+		// sanity check whether nodes had been inserted / can be found
+		if (Randomize::DBG) {
+			if (nodes.find(input) == nodes.end()) {
+				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << input << "\"" << std::endl;
+			}
+		}
 
 		// also add new node for primary inputs as child to global source
 		nodes[data.globalNodeNames.source].children.emplace_back( &(nodes[input]) );
@@ -502,6 +529,13 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 					Data::Node(output)
 				));
 
+		// sanity check whether nodes had been inserted / can be found
+		if (Randomize::DBG) {
+			if (nodes.find(output) == nodes.end()) {
+				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << output << "\"" << std::endl;
+			}
+		}
+
 		// also add global sink as child for new node
 		nodes[output].children.emplace_back( &(nodes[data.globalNodeNames.sink]) );
 	}
@@ -513,6 +547,13 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 					gate.name,
 					Data::Node(gate.name)
 				));
+
+		// sanity check whether nodes had been inserted / can be found
+		if (Randomize::DBG) {
+			if (nodes.find(gate.name) == nodes.end()) {
+				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << gate.name << "\"" << std::endl;
+			}
+		}
 	}
 
 	// add wires as nodes
@@ -522,11 +563,22 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 					wire,
 					Data::Node(wire)
 				));
+
+		// sanity check whether nodes had been inserted / can be found
+		if (Randomize::DBG) {
+			if (nodes.find(wire) == nodes.end()) {
+				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << wire << "\"" << std::endl;
+			}
+		}
 	}
 
 	// connect graph based on connectivity of gates
 	for (auto const& gate : data.netlist.gates) {
 		auto const& gate_iter = nodes.find(gate.name);
+
+		if (Randomize::DBG_VERBOSE) {
+			std::cout << "DBG>  Gate: \"" << gate.name << "\"" << std::endl;
+		}
 
 		// check all the inputs of the gate
 		//
@@ -534,8 +586,16 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 		for (auto const& input_iter : gate.inputs) {
 			auto const& node_iter = nodes.find(input_iter.second);
 
+			if (Randomize::DBG_VERBOSE) {
+				std::cout << "DBG>   Input pin: \"" << input_iter.first << "\"" << std::endl;
+			}
+
 			// there's a node matching the input of the gate
 			if (node_iter != nodes.end()) {
+
+				if (Randomize::DBG_VERBOSE) {
+					std::cout << "DBG>    Connected node: \"" << node_iter->first << "\"" << std::endl;
+				}
 
 				// memorize the gate's node as child of the node
 				node_iter->second.children.emplace_back(
@@ -547,6 +607,11 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 				//		&(node_iter->second)
 				//	);
 			}
+			// there's no node matching; that means the pin is dangling
+			else {
+				std::cout << "IO> Warning: the input pin \"" << input_iter.first << "\" of gate \"" << gate.name << "\" is dangling;" << std::endl;
+				std::cout << "IO>  the following wire/pin should have been connected, but was not found in the graph: \"" << input_iter.second << "\"" << std::endl;
+			}
 		}
 
 		// check all the outputs of the gate
@@ -555,8 +620,16 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 		for (auto const& output_iter : gate.outputs) {
 			auto const& node_iter = nodes.find(output_iter.second);
 
+			if (Randomize::DBG_VERBOSE) {
+				std::cout << "DBG>   Output pin: \"" << output_iter.first << "\"" << std::endl;
+			}
+
 			// there's a node matching the output of the gate
 			if (node_iter != nodes.end()) {
+
+				if (Randomize::DBG_VERBOSE) {
+					std::cout << "DBG>    Connected node: \"" << node_iter->first << "\"" << std::endl;
+				}
 
 				// memorize the node as child for the gate's node
 				gate_iter->second.children.emplace_back(
@@ -567,6 +640,11 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 				//node_iter->second.parents.emplace_back(
 				//		&(nodes.find(gate.name)->second)
 				//	);
+			}
+			// there's no node matching; that means the pin is dangling
+			else {
+				std::cout << "IO> Warning: the output pin \"" << output_iter.first << "\" of gate \"" << gate.name << "\" is dangling;" << std::endl;
+				std::cout << "IO>  the following wire/pin should have been connected, but was not found in the graph: \"" << output_iter.second << "\"" << std::endl;
 			}
 		}
 	}
@@ -602,10 +680,10 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 			}
 		}
 
-		std::cout << "Randomize> Done" << std::endl;
-		std::cout << "Randomize>  Nodes: " << nodes.size() << std::endl;
-		std::cout << "Randomize>  Edges: " << edges << std::endl;
-		std::cout << "Randomize> " << std::endl;
+		std::cout << "DBG> Done" << std::endl;
+		std::cout << "DBG>  Nodes: " << nodes.size() << std::endl;
+		std::cout << "DBG>  Edges: " << edges << std::endl;
+		std::cout << "DBG> " << std::endl;
 	}
 }
 	
