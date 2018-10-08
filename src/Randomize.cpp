@@ -413,7 +413,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 	if (!node->visited) {
 
 		if (Randomize::DBG) {
-			std::cout << "DBG>  Proceed with node " << node->name <<";";
+			std::cout << "DBG>  Proceed with node \"" << node->name <<"\";";
 			std::cout << " not visited yet; mark as visited and as part of recursion" << std::endl;
 		}
 
@@ -426,7 +426,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			auto const* child = node->children[c];
 
 			if (Randomize::DBG) {
-				std::cout << "DBG>   Consider node " << node->name << "'s child: " << child->name;
+				std::cout << "DBG>   Consider node \"" << node->name << "\"'s child: \"" << child->name << "\"";
 				std::cout << "; child " << c + 1 << "/" << node->children.size() << std::endl;
 			}
 
@@ -435,7 +435,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			if (!child->visited && Randomize::checkGraphForCycles(child)) {
 
 				if (Randomize::DBG) {
-					std::cout << "DBG> Return from recursive check of node " << node->name << "'s child: " << child->name;
+					std::cout << "DBG> Return from recursive check of node \"" << node->name << "\"'s child: \"" << child->name << "\"";
 					std::cout << "; a cycle was found ..." << std::endl;
 				}
 
@@ -447,7 +447,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			else if (child->recursion) {
 
 				if (Randomize::DBG) {
-					std::cout << "DBG>   Cycle found; passed this node " << child->name << " already during recursion" << std::endl;
+					std::cout << "DBG>   Cycle found; passed this node \"" << child->name << "\" already during recursion" << std::endl;
 				}
 
 				return true;
@@ -457,7 +457,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			// 
 			else {
 				if (Randomize::DBG) {
-					std::cout << "DBG>   Cleared node " << node->name << "'s child: " << child->name;
+					std::cout << "DBG>   Cleared node \"" << node->name << "\"'s child: " << child->name;
 					std::cout << "; child " << c + 1 << "/" << node->children.size() << std::endl;
 				}
 			}
@@ -465,7 +465,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 	}
 
 	if (Randomize::DBG) {
-		std::cout << "DBG> Check graph for cycles; DONE consider node: " << node->name << std::endl;
+		std::cout << "DBG> Check graph for cycles; DONE consider node: \"" << node->name << "\"" << std::endl;
 	}
 
 	// after return from recursion; mark as "not anymore part of a recursion"
@@ -664,11 +664,11 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 			//edges += node.parents.size();
 
 			if (Randomize::DBG) {
-				std::cout << "DBG>  " << node.name << ":" << std::endl;
+				std::cout << "DBG>  \"" << node.name << "\":" << std::endl;
 
 				std::cout << "DBG>   Children [" << node.children.size() << "]:";
 				for (auto const* child : node.children) {
-					std::cout << " " << child->name;
+					std::cout << " \"" << child->name << "\"";
 				}
 				std::cout << std::endl;
 
