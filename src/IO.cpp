@@ -6,12 +6,13 @@
 void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
-	if (argc < 5) {
+	if (argc < 6) {
 		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs out.v [threads]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': All cells and all their inputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.outputs'': All cells and all their outputs" << std::endl;
+		std::cout << "IO> Mandatory parameter ``cells.functions'': All cells and all their output functions" << std::endl;
 		std::cout << "IO> Mandatory parameter ``out.v'': Randomized netlist" << std::endl;
 		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs" << std::endl;
 		exit(1);
@@ -21,17 +22,19 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	data.files.in_netlist = argv[1];
 	data.files.cells_inputs = argv[2];
 	data.files.cells_outputs = argv[3];
-	data.files.out_netlist = argv[4];
+	data.files.cells_functions = argv[4];
+	data.files.out_netlist = argv[5];
 
 	// read in optional arguments
-	if (argc == 6) {
-		data.threads = std::stoi(argv[5]);
+	if (argc == 7) {
+		data.threads = std::stoi(argv[6]);
 	}
 
 	// test input files
 	IO::testFile(data.files.in_netlist);
 	IO::testFile(data.files.cells_inputs);
 	IO::testFile(data.files.cells_outputs);
+	IO::testFile(data.files.cells_functions);
 };
 
 void IO::testFile(std::string const& file) {
@@ -72,18 +75,12 @@ void IO::parseCells(Data& data) {
 			cell.inputs.emplace_back(tmpstr);
 		}
 
-		// memorize parsed cell; either update existing one or insert new one
+		// memorize parsed cell
 		//
-		auto const iter = data.cells.find(cell.type);
-		if (iter != data.cells.end()) {
-			iter->second.inputs = cell.inputs;
-		}
-		else {
-			data.cells.insert(std::make_pair(
-						cell.type,
-						cell
-					));
-		}
+		data.cells.insert(std::make_pair(
+					cell.type,
+					cell
+				));
 	}
 	
 	// close inputs file
@@ -110,21 +107,124 @@ void IO::parseCells(Data& data) {
 			cell.outputs.emplace_back(tmpstr);
 		}
 
-		// memorize parsed cell; either update existing one or insert new one
+		// update existing cells or log warning
 		//
 		auto const iter = data.cells.find(cell.type);
 		if (iter != data.cells.end()) {
 			iter->second.outputs = cell.outputs;
 		}
 		else {
-			data.cells.insert(std::make_pair(
-						cell.type,
-						cell
-					));
+			std::cout << "IO>  Warning -- the following cell has not been seen during the previous parsing operation: ";
+			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
 		}
 	}
 	
 	// close outputs file
+	in.close();
+
+	// 3) functions
+	in.open(data.files.cells_functions.c_str());
+
+	std::cout << "IO> Parsing the cells and their functions ...";
+	std::cout << std::endl;
+
+	while (std::getline(in, line)) {
+
+		Data::Cell cell;
+		std::istringstream linestream(line);
+		bool start = true;
+		bool stop = false;
+		std::string function;
+
+		// first is cell type
+		linestream >> cell.type;
+
+		// then, any number of output functions can follow
+		//
+		// functions are encapsulated within " ", so parse for beginning and end "
+		//
+		while (!linestream.eof()) {
+
+			linestream >> tmpstr;
+
+			// current word is start, end, or both start and end of new function
+			if (tmpstr.find('"') != std::string::npos) {
+
+				// start, init string
+				if (start) {
+					function = tmpstr;
+					start = false;
+
+					// start word is also stop word
+					if (std::count(function.begin(), function.end(), '"') == 2) {
+						stop = true;
+					}
+				}
+				// second, independent occurrence of "; stop
+				else if (!start) {
+					stop = true;
+				}
+
+				// stop, finalize string
+				if (stop) {
+
+					// consider last word of function, but only for functions spread across multiple words, where
+					// there's currently only one occurrence of "
+					if (std::count(function.begin(), function.end(), '"') == 1) {
+						function += " " + tmpstr;
+					}
+
+					//if (IO::DBG) {
+					//	std::cout << "IO_DBG>  \"" << cell.type << "\" FUNCTION: \"" << function << "\"" << std::endl;
+					//}
+
+					// memorize function, but drop the " at the beginning and the end
+					cell.functions.emplace_back(std::string(function.begin() + 1, function.end() - 1));
+
+					// reset start/stop
+					start = true;
+					stop = false;
+				}
+			}
+			else {
+				// regular word in between, part of current function
+				function += " " + tmpstr;
+			}
+		}
+
+		// update existing cells or log warning
+		//
+		auto const iter = data.cells.find(cell.type);
+		if (iter != data.cells.end()) {
+			iter->second.functions = cell.functions;
+
+			// cross check number of functions with number of output pins
+			if (iter->second.functions.size() != iter->second.outputs.size()) {
+				std::cout << "IO>  Warning -- the following cell has a different number of outputs and output functions: ";
+				std::cout << "\"" << iter->second.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
+
+				if (IO::DBG) {
+					std::cout << "IO_DBG>  \"" << iter->second.type << "\"";
+					std::cout << " OUT = ( ";
+					for (auto const& output : iter->second.outputs) {
+						std::cout << "\"" << output << "\" ";
+					}
+					std::cout << ")";
+					std::cout << " FUNCTIONS = ( ";
+					for (auto const& function : iter->second.functions) {
+						std::cout << "\"" << function << "\" ";
+					}
+					std::cout << ")" << std::endl;
+				}
+			}
+		}
+		else {
+			std::cout << "IO>  Warning -- the following cell has not been seen during the previous parsing operation: ";
+			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
+		}
+	}
+	
+	// close functions file
 	in.close();
 
 	// dbg log of parsed tuples
@@ -139,8 +239,8 @@ void IO::parseCells(Data& data) {
 			std::cout << "IO_DBG>  \"" << cell.type << "\"";
 
 			std::cout << " OUT = ( ";
-			for (auto const& output : cell.outputs) {
-				std::cout << "\"" << output << "\" ";
+			for (unsigned i = 0; i < cell.outputs.size(); i++) {
+				std::cout << "\"" << cell.outputs[i] << "\" = \"" << cell.functions[i] << "\" ";
 			}
 			std::cout << ")";
 			std::cout << " IN = ( ";

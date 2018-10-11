@@ -25,6 +25,7 @@ class Data {
 			std::string in_netlist;
 			std::string cells_inputs;
 			std::string cells_outputs;
+			std::string cells_functions;
 			std::string out_netlist;
 		} files;
 
@@ -33,6 +34,7 @@ class Data {
 			std::string type;
 			std::vector<std::string> inputs;
 			std::vector<std::string> outputs;
+			std::vector<std::string> functions;
 		};
 		// actual container
 		// mapping: name, cell
