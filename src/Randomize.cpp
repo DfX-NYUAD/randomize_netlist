@@ -71,75 +71,6 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize>" << std::endl;
 };
 
-//void Randomize::rewriteConnectivity(std::pair<std::string, std::string> const& a, Data::Gate& gate, Data& data) {
-//
-//	//if (Randomize::DBG) {
-//	//	std::cout << "DBG> Mapping: " << a.first << " -> " << a. second << std::endl;
-//	//	std::cout << "DBG> Gate: " << gate.name << std::endl;
-//	//}
-//
-//	// first is pin name, second is net/pin name
-//	for (auto& output : gate.outputs) {
-//
-//		// the gate's output matches with the assignment driver or the assignment sink
-//		if (output.second == a.first || output.second == a.second) {
-//
-//			if (Randomize::DBG) {
-//				std::cout << "DBG>  Affected gate: " << gate.name;
-//				std::cout << "; mapping: " << a.first << " -> " << a. second;
-//				std::cout << "; affected output: " << output.first << "(" << output.second << ")" << std::endl;
-//			}
-//
-//			// in case the assignment driver is a PO, rename the gate output towards that PO
-//			if (data.netlist.outputs.find(a.first) != data.netlist.outputs.end()) {
-//				output.second = a.first;
-//			}
-//			// regular case, no PO; rename gate output towards new wire
-//			else {
-//				output.second = a.first + "_" + a.second;
-//			}
-//
-//			// also memorize that new wire; by using set, no redundant wires arise
-//			data.netlist.wires.insert(output.second);
-//
-//			if (Randomize::DBG) {
-//				std::cout << "DBG>   New output: " << output.second << std::endl;
-//			}
-//		}
-//	}
-//
-//	// first is pin name, second is net/pin name
-//	for (auto& input : gate.inputs) {
-//
-//		// the gate's input matches with the assignment driver or the assignment sink
-//		if (input.second == a.first || input.second == a.second) {
-//
-//			if (Randomize::DBG) {
-//				std::cout << "DBG>  Affected gate: " << gate.name;
-//				std::cout << "; mapping: " << a.first << " -> " << a. second;
-//				std::cout << "; affected input: " << input.first << "(" << input.second << ")" << std::endl;
-//			}
-//
-//			// in case the assignment driver is a PO, rename the gate input towards that PO
-//			if (data.netlist.outputs.find(a.first) != data.netlist.outputs.end()) {
-//				input.second = a.first;
-//			}
-//			// regular case, no PO; rename gate input towards new wire
-//			else {
-//				input.second = a.first + "_" + a.second;
-//			}
-//
-//			// also memorize that new wire; by using set, no redundant wires arise
-//			data.netlist.wires.insert(input.second);
-//
-//			if (Randomize::DBG) {
-//				std::cout << "DBG>   New input: " << input.second << std::endl;
-//			}
-//		}
-//	}
-//}
-
-
 void Randomize::iteration(Data& data, double& HD) {
 	// threads
 	std::vector<std::thread> threads;
@@ -164,6 +95,7 @@ void Randomize::iteration(Data& data, double& HD) {
 	//threads.reserve(data.threads);
 	//HD_iterations_per_thread = data.HD_sampling_iterations / data.threads;
 	//for (unsigned t = 1; t <= data.threads; t++) {
+	//TODO use m.lock and m.unlock within evaluateHD to update HD
 	//	threads.emplace_back( std::thread(Randomize::evaluateHD, std::ref(nodes), std::ref(HD_iterations_per_thread), std::ref(HD), std::ref(m)) );
 	//}
 	//// join threads; the main thread execution will pause until all threads are done
@@ -174,42 +106,6 @@ void Randomize::iteration(Data& data, double& HD) {
 	//threads.clear();
 
 	// TODO if HD improved, write back random operation to netlist
-
-//	// graph could be build up
-//	if (success_trial) {
-//
-//		// now check for cycles, start from global source
-//		//
-//		// returns true if cycle found; hence negate to indicate success (no cycle)
-//		success_trial = !Randomize::checkGraphForCycles(
-//				&(nodes[data.globalNodeNames.source])
-//			);
-//
-//		// in case the run was the first successful one, evaluate that run and generate obtained netlist (using the mutex)
-//		if (success_trial & !success) {
-//			m.lock();
-//
-//			success = true;
-//
-//			std::cout << "Randomize>" << std::endl;
-//			std::cout << "Randomize> Success! Found F2F assignment without cycles" << std::endl;
-//
-//			// also report attack time
-//			std::chrono::duration<double> runtime = std::chrono::system_clock::now() - start_time;
-//
-//			std::cout << "Randomize>" << std::endl;
-//			std::cout << "Randomize> Randomize runtime: " << runtime.count() << " seconds" << std::endl;
-//
-//			// evaluate assignment and output netlist
-//			Randomize::evaluateAndOutput(assignment, data);
-//
-//			m.unlock();
-//		}
-//	}
-//	// handling of the graph may fail in case not all drivers can be mapped to some sink
-//	else {
-//		std::cout << "Randomize> Failed to assign all F2F mappings; check the mappings.file ..." << std::endl;
-//	}
 }
 
 bool Randomize::checkGraphForCycles(Data::Node const* node) {
@@ -593,130 +489,3 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 		std::cout << "DBG> " << std::endl;
 	}
 }
-	
-//bool Randomize::tackleF2F(std::unordered_set<std::string>& output_set, std::unordered_multimap<std::string, std::string>& input_map, std::unordered_multimap<std::string, std::string> const& inverted_input_map, std::unordered_map<std::string, Data::Node>& nodes, Data::AssignmentF2F& assignment, bool const& top_to_bottom) {
-//
-//	// tackle F2F outputs to inputs for the other tier until all are resolved
-//	//
-//	while (!output_set.empty()) {
-//
-//		if (Randomize::DBG) {
-//			std::cout << "DBG> Remaining output_set [" << output_set.size() << "]:" << std::endl;
-//
-//			for (auto const& output : output_set) {
-//				std::cout << "DBG>  " << output << std::endl;
-//			}
-//		}
-//
-//		// pick key/output randomly
-//		auto const& output = std::next(output_set.begin(),
-//				Randomize::rand(0, output_set.size())
-//			);
-//
-//		if (Randomize::DBG) {
-//			std::cout << "DBG> output: " << *output << std::endl;
-//			std::cout << "DBG>  Remaining inputs -- in other tier! -- for that output [" << input_map.count(*output) << "]:" << std::endl;
-//
-//			auto iter = input_map.equal_range(*output);
-//			for (auto input = iter.first; input != iter.second; ++input) {
-//				std::cout << "DBG>   " << (*input).second << std::endl;
-//			}
-//		}
-//
-//		// pick assignment for that key/output randomly
-//		//
-//		// sanity check whether any assignment remains; may arise due to unlucky selection of assignments such that no input
-//		// remains, or due to inappropriate definition for sinks in the mappings file
-//		if (input_map.count(*output) == 0) {
-//			return false;
-//		}
-//
-//		// CANNOT USE REFERENCE HERE; otherwise the erasing procedure below, iterating over input_map, will mess up the value of
-//		// input
-//		auto input = std::next(input_map.equal_range(*output).first,
-//				Randomize::rand(0, input_map.count(*output))
-//			)->second;
-//
-//		if (Randomize::DBG) {
-//			std::cout << "DBG>   Picking the following input port from the other tier as being driven by \"" << *output << "\": \"" << input << "\"" << std::endl;
-//		}
-//
-//		// memorize the node related to the picked assignment as child for the output node
-//		nodes.find(*output)->second.children.emplace_back(
-//			&(nodes.find(input)->second)
-//		);
-//
-//		if (Randomize::DBG) {
-//			std::cout << "DBG>   Memorize the assignment in the graph..." << std::endl;
-//			std::cout << "DBG>    Node " << nodes.find(*output)->second.name << "'s new set of children:" << std::endl;
-//			for (auto const* child : nodes.find(*output)->second.children) {
-//				std::cout << "DBG>     " << child->name << std::endl;
-//			}
-//		}
-//
-//
-//		// also memorize the picked assignment
-//		if (top_to_bottom) {
-//			assignment.top_to_bottom.insert(std::make_pair(
-//						*output,
-//						input
-//					));
-//			}
-//		else {
-//			assignment.bottom_to_top.insert(std::make_pair(
-//						*output,
-//						input
-//					));
-//		}
-//
-//		// erase all other assignments from any output to this same input, to avoid multi-driver assignments
-//		// 
-//		// also, considering there are only 1-to-1 F2F mappings, erase all other possible mappings for the output/driver just
-//		// assigned
-//		//
-//		auto outputs = inverted_input_map.equal_range(input);
-//
-//		for (auto output_iter = outputs.first; output_iter != outputs.second; ++output_iter) {
-//
-//			auto inputs = input_map.equal_range(output_iter->second);
-//
-//			for (auto input_iter = inputs.first; input_iter != inputs.second; ) {
-//
-//				if (input_iter->second == input) {
-//
-//					if (Randomize::DBG) {
-//						std::cout << "DBG>   Removing the following other, previously possible driver/assignment for \"" << input << "\": ";
-//						std::cout << "\"" << input_iter->first << "\" -> \"" << input_iter->second << "\"";
-//						std::cout << std::endl;
-//					}
-//
-//					input_iter = input_map.erase(input_iter);
-//				}
-//				else if (input_iter->first == *output) {
-//
-//					if (Randomize::DBG) {
-//						std::cout << "DBG>   Removing the following other, previously possible driver/assignment for \"" << *output << "\": ";
-//						std::cout << "\"" << input_iter->first << "\" -> \"" << input_iter->second << "\"";
-//						std::cout << std::endl;
-//					}
-//
-//					input_iter = input_map.erase(input_iter);
-//				}
-//				else {
-//					if (Randomize::DBG) {
-//						std::cout << "DBG>   NOT removing the following assignment: ";
-//						std::cout << "\"" << input_iter->first << "\" -> \"" << input_iter->second << "\"";
-//						std::cout << std::endl;
-//					}
-//
-//					++input_iter;
-//				}
-//			}
-//		}
-//
-//		// erase key/output from set of yet unassigned outputs
-//		output_set.erase(output);
-//	}
-//
-//	return true;
-//}
