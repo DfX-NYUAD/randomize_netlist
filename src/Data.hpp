@@ -19,6 +19,8 @@ class Data {
 	public:
 		// threads
 		unsigned threads = 1;
+		// HD sampling iterations
+		unsigned HD_sampling_iterations = 1e6;
 
 		// POD for files names
 		struct files {

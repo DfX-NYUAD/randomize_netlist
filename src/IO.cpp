@@ -7,14 +7,16 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
 	if (argc < 6) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs out.v [threads]" << std::endl;
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs out.v [threads [sampling_iterations]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': All cells and all their inputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.outputs'': All cells and all their outputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.functions'': All cells and all their output functions" << std::endl;
 		std::cout << "IO> Mandatory parameter ``out.v'': Randomized netlist" << std::endl;
-		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs" << std::endl;
+		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.threads << std::endl;
+		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation: " << data.HD_sampling_iterations << std::endl;
+		std::cout << "IO> " << std::endl;
 		exit(1);
 	}
 
@@ -26,8 +28,11 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	data.files.out_netlist = argv[5];
 
 	// read in optional arguments
-	if (argc == 7) {
+	if (argc >= 7) {
 		data.threads = std::stoi(argv[6]);
+	}
+	if (argc == 8) {
+		data.HD_sampling_iterations = std::stoi(argv[7]);
 	}
 
 	// test input files
@@ -35,6 +40,15 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	IO::testFile(data.files.cells_inputs);
 	IO::testFile(data.files.cells_outputs);
 	IO::testFile(data.files.cells_functions);
+
+	std::cout << "IO> Parameter ``netlist.v'': " << data.files.in_netlist << std::endl;
+	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
+	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
+	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	std::cout << "IO> Parameter ``out.v'': " << data.files.out_netlist << std::endl;
+	std::cout << "IO> Parameter ``threads'': " << data.threads << std::endl;
+	std::cout << "IO> Parameter ``sampling_iterations'': " << data.HD_sampling_iterations << std::endl;
+	std::cout << "IO> " << std::endl;
 };
 
 void IO::testFile(std::string const& file) {

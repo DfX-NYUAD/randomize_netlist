@@ -13,31 +13,20 @@ class Randomize {
 
 	// private data, functions
 	private:
-		//static void rewriteConnectivity(
-		//	std::pair<std::string, std::string> const& a,
-		//	Data::Gate& gate,
-		//	Data& data
-		//);
-		//static bool tackleF2F(
-		//		std::unordered_set<std::string>& output_set,
-		//		std::unordered_multimap<std::string, std::string>& input_map,
-		//		std::unordered_multimap<std::string, std::string> const& inverted_input_map,
-		//		std::unordered_map<std::string, Data::Node>& nodes,
-		//		Data::AssignmentF2F& assignment,
-		//		bool const& top_to_bottom
-		//);
+		static void evaluateHD(
+				std::unordered_map<std::string, Data::Node> const& nodes,
+				double& HD,
+				std::mutex& m
+			);
 
 	// constructors, destructors, if any non-implicit
 	private:
 
 	// public data, functions
 	public:
-		static double iteration(
-				Data& data
-			//	bool& success,
-			//	unsigned& trials,
-			//	std::mutex& m,
-			//	std::chrono::time_point<std::chrono::system_clock>& start_time
+		static void iteration(
+				Data& data,
+				double& HD
 			);
 		static void initGraph(
 				std::unordered_map<std::string, Data::Node>& nodes,

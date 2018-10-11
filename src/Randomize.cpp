@@ -53,7 +53,7 @@ int main (int argc, char** argv) {
 	HD = 0.0;
 	do {
 		iter++;
-		HD = Randomize::iteration(data);
+		Randomize::iteration(data, HD);
 
 		std::cout << "Randomize> Iteration: " << iter << std::endl;
 		std::cout << "Randomize>  Current HD: " << HD << std::endl;
@@ -140,17 +140,24 @@ int main (int argc, char** argv) {
 //}
 
 
-//TODO
-double Randomize::iteration(Data& data) {
-	std::unordered_map<std::string, Data::Node> nodes;
+void Randomize::iteration(Data& data, double& HD) {
+	// threads
 	std::vector<std::thread> threads;
 	std::mutex m;
+	// local graph data
+	std::unordered_map<std::string, Data::Node> nodes;
 
-	//// TODO
+	// init the local graph 
+	//
+	Randomize::initGraph(nodes, data);
+
+	// TODO random operation on graph
+
+	//// TODO evaluate HD
 	//// init threads for HD evaluation
 	//threads.reserve(data.threads);
 	//for (unsigned t = 1; t <= data.threads; t++) {
-	//	//threads.emplace_back( std::thread(Randomize::iteration, std::ref(data), std::ref(success), std::ref(trials), std::ref(m), std::ref(start_time)) );
+	//	threads.emplace_back( std::thread(Randomize::evaluateHD, std::ref(nodes), std::ref(HD), std::ref(m)) );
 	//}
 	//// join threads; the main thread execution will pause until all threads are done
 	//for (std::thread& t : threads) {
@@ -159,9 +166,7 @@ double Randomize::iteration(Data& data) {
 	//// clean up all threads
 	//threads.clear();
 
-	// init the graph copy
-	//
-	Randomize::initGraph(nodes, data);
+	// TODO if HD improved, write back random operation to netlist
 
 //	// graph could be build up
 //	if (success_trial) {
@@ -198,13 +203,6 @@ double Randomize::iteration(Data& data) {
 //	else {
 //		std::cout << "Randomize> Failed to assign all F2F mappings; check the mappings.file ..." << std::endl;
 //	}
-
-	if (Randomize::DBG) {
-		std::cout << "DBG> Randomize trial SUCCESS" << std::endl;
-	}
-
-	// TODO return HD
-	return 0.0;
 }
 
 bool Randomize::checkGraphForCycles(Data::Node const* node) {
