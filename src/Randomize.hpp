@@ -15,9 +15,27 @@ class Randomize {
 	private:
 		static void evaluateHD(
 				std::unordered_map<std::string, Data::Node> const& nodes,
+				double const& iterations,
 				double& HD,
 				std::mutex& m
 			);
+		static void determGraphOrderRec(Data::Node const* node);
+		static void determGraphOrder(
+				std::unordered_map<std::string, Data::Node>& nodes,
+				Data const& data
+			);
+
+		// random-number function
+		//
+		// note: range is [min, max)
+		inline static int rand(int const& min, int const& max) {
+			if (max == min) {
+				return min;
+			}
+			else {
+				return min + (std::rand() % (max - min));
+			}
+		};
 
 	// constructors, destructors, if any non-implicit
 	private:
@@ -32,20 +50,7 @@ class Randomize {
 				std::unordered_map<std::string, Data::Node>& nodes,
 				Data const& data
 			);
-
 		static bool checkGraphForCycles(Data::Node const* node);
-
-		// random-number function
-		//
-		// note: range is [min, max)
-		inline static int rand(int const& min, int const& max) {
-			if (max == min) {
-				return min;
-			}
-			else {
-				return min + (std::rand() % (max - min));
-			}
-		};
 };
 
 #endif

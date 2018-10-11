@@ -50,8 +50,12 @@ class Data {
 			//enum class type_enum : unsigned {gate, input, output};
 			//type_enum type;
 
-			//std::vector<Node const*> parents;
+			std::vector<Node const*> parents;
 			std::vector<Node const*> children;
+
+			// index for topological order, from global source to global sink in ascending order
+			// -1 means undefined, global source will be assigned 0
+			mutable int index = -1;
 
 			mutable bool visited = false;
 			mutable bool recursion = false;
@@ -59,12 +63,12 @@ class Data {
 			Node(
 				std::string n = "",
 				//type_enum type,
-				//std::vector<Node const*> p = std::vector<Node const*>(),
+				std::vector<Node const*> p = std::vector<Node const*>(),
 				std::vector<Node const*> c = std::vector<Node const*>()
 			) :
 				name(n),
 				//type(t),
-				//parents(p),
+				parents(p),
 				children(c) {}
 		};
 		// names/identifier for global source/sink

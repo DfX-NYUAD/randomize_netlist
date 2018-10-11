@@ -143,6 +143,7 @@ int main (int argc, char** argv) {
 void Randomize::iteration(Data& data, double& HD) {
 	// threads
 	std::vector<std::thread> threads;
+	double HD_iterations_per_thread;
 	std::mutex m;
 	// local graph data
 	std::unordered_map<std::string, Data::Node> nodes;
@@ -152,12 +153,18 @@ void Randomize::iteration(Data& data, double& HD) {
 	Randomize::initGraph(nodes, data);
 
 	// TODO random operation on graph
+	// TODO if a new gate has been inserted, check for loop
+
+	// determine the order of all graph nodes, from global source to global sink
+	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
+	Randomize::determGraphOrder(nodes, data);
 
 	//// TODO evaluate HD
 	//// init threads for HD evaluation
 	//threads.reserve(data.threads);
+	//HD_iterations_per_thread = data.HD_sampling_iterations / data.threads;
 	//for (unsigned t = 1; t <= data.threads; t++) {
-	//	threads.emplace_back( std::thread(Randomize::evaluateHD, std::ref(nodes), std::ref(HD), std::ref(m)) );
+	//	threads.emplace_back( std::thread(Randomize::evaluateHD, std::ref(nodes), std::ref(HD_iterations_per_thread), std::ref(HD), std::ref(m)) );
 	//}
 	//// join threads; the main thread execution will pause until all threads are done
 	//for (std::thread& t : threads) {
@@ -278,6 +285,98 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 	return false;
 }
 
+void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node>& nodes, Data const& data) {
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Determining the graph order, in ascending order from global source to global sink ..." << std::endl;
+	}
+
+	// global source has index 0 by definition
+	nodes.find(data.globalNodeNames.source)->second.index = 0;
+
+	// recursively handle all node, starting from global source
+	Randomize::determGraphOrderRec(&(nodes.find(data.globalNodeNames.source)->second));
+
+	// dbg log
+	//
+	if (Randomize::DBG) {
+
+		std::cout << "DBG> Print netlist graph: " << std::endl;
+
+		for (auto const& node_iter : nodes) {
+			auto const& node = node_iter.second;
+
+			if (Randomize::DBG) {
+				std::cout << "DBG>  \"" << node.name << "\":" << std::endl;
+
+				std::cout << "DBG>   Index: " << node.index << std::endl;
+
+				std::cout << "DBG>   Children [" << node.children.size() << "]:";
+				for (auto const* child : node.children) {
+					std::cout << " \"" << child->name << "\"";
+					std::cout << "; Index: " << child->index;
+				}
+				std::cout << std::endl;
+
+				std::cout << "DBG>   Parents [" << node.parents.size() << "]:";
+				for (auto const* parent : node.parents) {
+					std::cout << " \"" << parent->name << "\"";
+					std::cout << "; Index: " << parent->index;
+				}
+				std::cout << std::endl;
+			}
+		}
+
+		std::cout << "DBG> Done" << std::endl;
+		std::cout << "DBG> " << std::endl;
+	}
+}
+
+void Randomize::determGraphOrderRec(Data::Node const* node) {
+
+	// derive index for current node from maximum among parents
+	//
+	for (auto const* parent : node->parents) {
+		node->index = std::max(node->index, parent->index + 1);
+	}
+	
+	if (Randomize::DBG_VERBOSE) {
+
+		std::cout << "DBG>  Depth-first traversal of graph -- current node: " << node->name << std::endl;
+		std::cout << "DBG>   Topological index: " << node->index << std::endl;
+
+		if (!node->children.empty()) {
+			std::cout << "DBG>   Children: " << node->children.size() << std::endl;
+			for (auto const* child : node->children) {
+				std::cout << "DBG>    Child: " << child->name << std::endl;
+				std::cout << "DBG>     Current topological index of child: " << child->index << std::endl;
+			}
+		}
+	}
+
+	// traverse all children in depth-first manner
+	//
+	for (auto *child : node->children) {
+
+		// only traverse when useful; in case the child's index is already larger than the index of the current node, no updates
+		// will be possible
+		//
+		if (child->index <= node->index) {
+
+			if (Randomize::DBG_VERBOSE) {
+				std::cout << "DBG>  Depth-first traversal of graph; continue with child of node: " << node->name << std::endl;
+			}
+
+			Randomize::determGraphOrderRec(child);
+		}
+	}
+	
+	if (Randomize::DBG_VERBOSE) {
+
+		std::cout << "DBG>  Depth-first traversal of graph; done for now with node: " << node->name << std::endl;
+	}
+}
+
 void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Data const& data) {
 
 	if (Randomize::DBG) {
@@ -323,6 +422,8 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		// also add new node for primary inputs as child to global source
 		nodes[data.globalNodeNames.source].children.emplace_back( &(nodes[input]) );
+		// also add global source as parent for new node
+		nodes[input].parents.emplace_back( &nodes[data.globalNodeNames.source] );
 	}
 
 	// add outputs as nodes
@@ -342,6 +443,8 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		// also add global sink as child for new node
 		nodes[output].children.emplace_back( &(nodes[data.globalNodeNames.sink]) );
+		// also add new node as parent for global sink
+		nodes[data.globalNodeNames.sink].parents.emplace_back( &(nodes[output]) );
 	}
 
 	// add gates as nodes
@@ -406,10 +509,10 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 						&(gate_iter->second)
 					);
 
-				//// memorize the node as parent for the gate's node
-				//nodes.find(gate.name)->second.parents.emplace_back(
-				//		&(node_iter->second)
-				//	);
+				// memorize the node as parent for the gate's node
+				gate_iter->second.parents.emplace_back(
+						&(node_iter->second)
+					);
 			}
 			// there's no node matching; that means the pin is dangling
 			else {
@@ -440,10 +543,10 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 						&(node_iter->second)
 					);
 
-				//// memorize the gate's node as parent of the node
-				//node_iter->second.parents.emplace_back(
-				//		&(nodes.find(gate.name)->second)
-				//	);
+				// memorize the gate's node as parent of the node
+				node_iter->second.parents.emplace_back(
+						&(gate_iter->second)
+					);
 			}
 			// there's no node matching; that means the pin is dangling
 			else {
@@ -465,7 +568,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 			auto const& node = node_iter.second;
 
 			edges += node.children.size();
-			//edges += node.parents.size();
+			edges += node.parents.size();
 
 			if (Randomize::DBG) {
 				std::cout << "DBG>  \"" << node.name << "\":" << std::endl;
@@ -476,11 +579,11 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 				}
 				std::cout << std::endl;
 
-				//std::cout << "DBG>   Parents [" << node.parents.size() << "]:";
-				//for (auto const* parent : node.parents) {
-				//	std::cout << " " << parent->name;
-				//}
-				//std::cout << std::endl;
+				std::cout << "DBG>   Parents [" << node.parents.size() << "]:";
+				for (auto const* parent : node.parents) {
+					std::cout << " \"" << parent->name << "\"";
+				}
+				std::cout << std::endl;
 			}
 		}
 
