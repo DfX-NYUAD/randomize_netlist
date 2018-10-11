@@ -58,13 +58,17 @@ int main (int argc, char** argv) {
 		std::cout << "Randomize> Iteration: " << iter << std::endl;
 		std::cout << "Randomize>  Current HD: " << HD << std::endl;
 
-		IO::writeNetlist(data);
-
 		break;
 	}
 	while (HD < 0.45);
 
-	// TODO output randomized netlist
+	// output randomized netlist
+	IO::writeNetlist(data);
+
+	// also log runtime
+	std::chrono::duration<double> runtime = std::chrono::system_clock::now() - start_time;
+	std::cout << "Randomize> Overall runtime: " << runtime.count() << " seconds" << std::endl;
+	std::cout << "Randomize>" << std::endl;
 };
 
 //void Randomize::rewriteConnectivity(std::pair<std::string, std::string> const& a, Data::Gate& gate, Data& data) {
