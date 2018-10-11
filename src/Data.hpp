@@ -82,6 +82,8 @@ class Data {
 
 		// PODs for netlists
 		struct Netlist {
+			// module name
+			std::string module_name;
 			// I/Os ports
 			std::set<std::string> inputs;
 			std::set<std::string> outputs;

@@ -275,6 +275,37 @@ void IO::parseNetlist(Data& data) {
 	std::cout << "IO> Parsing the netlist ...";
 	std::cout << std::endl;
 
+	// 0) parse the module name
+	while (std::getline(in, line)) {
+
+		// skip all the irrelevant lines
+		if (!(line.find("module") != std::string::npos && line.find("end") == std::string::npos)) {
+			continue;
+		}
+		// process the one relevant line
+		else {
+			std::istringstream linestream(line);
+
+			// drop "module";
+			linestream >> tmpstr;
+
+			// parse the module name
+			linestream >> tmpstr;
+
+			data.netlist.module_name = tmpstr;
+		}
+	}
+	
+	// reset file handler
+	in.clear() ;
+	in.seekg(0, in.beg);
+
+	// dbg log
+	//
+	if (IO::DBG) {
+		std::cout << "IO_DBG> Print module name: " << data.netlist.module_name << std::endl;
+	}
+
 	// 1) parse inputs, line by line
 	//
 	while (std::getline(in, line)) {
@@ -553,3 +584,106 @@ void IO::parseNetlist(Data& data) {
 		exit(1);
 	}
 };
+
+void IO::writeNetlist(Data& data) {
+	std::ofstream out;
+
+	std::cout << "Randomize>" << std::endl;
+	std::cout << "Randomize> Writing out netlist ..." << std::endl;
+
+	out.open(data.files.out_netlist.c_str());
+
+	out << "// Randomized netlist -- HD around TODO" << std::endl;
+	out << "//" << std::endl;
+	out << std::endl;
+	out << "module " << data.netlist.module_name << " (" << std::endl;
+
+	// output all inputs for module ports
+	for (auto const& input : data.netlist.inputs) {
+		out << input << "," << std::endl;
+	}
+
+	// output all outputs for module ports
+	unsigned count = 1;
+	for (auto const& output : data.netlist.outputs) {
+
+		// the last output has no comma following, and it also closes the port list
+		if (count == data.netlist.outputs.size()) {
+			out << output << ");" << std::endl;
+		}
+		else {
+			out << output << "," << std::endl;
+			count++;
+		}
+	}
+	out << std::endl;
+
+	// output all inputs
+	for (auto const& input : data.netlist.inputs) {
+		out << "input " << input << ";" << std::endl;
+	}
+	out << std::endl;
+
+	// output all outputs
+	for (auto const& output : data.netlist.outputs) {
+		out << "output " << output << ";" << std::endl;
+	}
+	out << std::endl;
+
+	// output all wires
+	for (auto const& wire : data.netlist.wires) {
+		out << "wire " << wire << ";" << std::endl;
+	}
+	out << std::endl;
+
+	// output all gates 
+	for (auto const& gate: data.netlist.gates) {
+		unsigned outputs_remaining = gate.outputs.size();
+		unsigned inputs_remaining = gate.inputs.size();
+
+		out << gate.type << " ";
+		out << gate.name << " ";
+
+		out << "(";
+
+		for (auto const& input : gate.inputs) {
+
+			// corner case: no outputs are present and this is the last input, so end port mapping already here
+			if (outputs_remaining == 0 && inputs_remaining == 1) {
+				out << "." << input.first << "(" << input.second << ")";
+			}
+			else {
+				out << "." << input.first << "(" << input.second << "), ";
+				inputs_remaining--;
+			}
+		}
+
+		// only one output
+		if (outputs_remaining == 1) {
+			out << "." << gate.outputs.begin()->first << "(" << gate.outputs.begin()->second << ")";
+		}
+		// multiple outputs (or zero outputs)
+		else {
+			for (auto const& output : gate.outputs) {
+
+				if (outputs_remaining == 1) {
+					out << "." << output.first << "(" << output.second << ")";
+				}
+				else {
+					out << "." << output.first << "(" << output.second << "), ";
+					outputs_remaining--;
+				}
+			}
+		}
+
+		out << ");" << std::endl;
+	}
+
+	out << std::endl;
+	out << "endmodule" << std::endl;
+
+	out.close();
+
+	std::cout << "Randomize> Done" << std::endl;
+	std::cout << "Randomize>" << std::endl;
+}

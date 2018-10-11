@@ -27,6 +27,7 @@ class IO {
 		static void parseParametersFiles(Data& data, int const& argc, char** argv);
 		static void parseCells(Data& data);
 		static void parseNetlist(Data& data);
+		static void writeNetlist(Data& data);
 };
 
 #endif

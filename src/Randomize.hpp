@@ -43,10 +43,6 @@ class Randomize {
 				std::unordered_map<std::string, Data::Node>& nodes,
 				Data const& data
 			);
-		//static void evaluateAndOutput(
-		//		Data::AssignmentF2F const& assignment,
-		//		Data& data
-		//	);
 
 		static bool checkGraphForCycles(Data::Node const* node);
 
