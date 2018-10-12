@@ -78,8 +78,8 @@ class Data {
 			mutable bool visited = false;
 			mutable bool recursion = false;
 
-			// current Boolean value; required for HD evaluation
-			mutable bool bit = false;
+			// current Boolean value; -1 means undefined; required for HD evaluation
+			mutable int bit = -1;
 
 			// pointer to gate, if any
 			Gate const* gate = nullptr;

@@ -102,21 +102,164 @@ void Randomize::iteration(Data const& data, double& HD) {
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
 	Randomize::determGraphOrder(nodes);
 
-	//// evaluate HD in parallel
-	//threads.reserve(data.threads);
-	//double const iterations_per_thread = data.HD_sampling_iterations / data.threads;
-	//for (unsigned t = 1; t <= data.threads; t++) {
-	//	// pass original netlist and local graph as copies, since the threads have to work on separate data sets
-	//	threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, nodes, std::ref(netlist), std::ref(iterations_per_thread), std::ref(HD), std::ref(m)) );
-	//}
-	//// join threads; the main thread execution will pause until all threads are done
-	//for (std::thread& t : threads) {
-	//	t.join();
-	//}
-	//// clean up all threads
-	//threads.clear();
+	// evaluate HD in parallel
+	threads.reserve(data.threads);
+	double const iterations_per_thread = data.HD_sampling_iterations / data.threads;
+	for (unsigned t = 1; t <= data.threads; t++) {
+		// pass original netlist and local graph as copies, since the threads have to work on separate data sets
+		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, nodes, std::ref(netlist), std::ref(iterations_per_thread), std::ref(HD), std::ref(m)) );
+	}
+	// join threads; the main thread execution will pause until all threads are done
+	for (std::thread& t : threads) {
+		t.join();
+	}
+	// clean up all threads
+	threads.clear();
 
 	// TODO if HD improved, make local netlist the new global netlist
+}
+
+void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, Data::Netlist const& netlist, double const& iterations, double& HD, std::mutex& m) {
+	double HD_local = 0;
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Evaluate HD ..." << std::endl;
+	}
+
+	// TODO repeat for iterations
+
+	// first, randomly assign the same bits to the input nodes in the original and the current graph
+	//
+	for (auto const& input : orig_netlist_copy.inputs) {
+		orig_netlist_copy.nodes[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
+
+		if (Randomize::DBG) {
+			std::cout << "DBG>   Assign the following random bit to PI \"" << input << "\": " << orig_netlist_copy.nodes[input].bit << std::endl;
+		}
+	}
+
+	// original graph
+	//
+	// index by index, propagate these random inputs through the whole netlist/graph; note that walking over linked graph could not
+	// guarantee that the Boolean value of the parents is already computed, that can only be achieved when considering the indices
+	//
+	// regular nodes start with index 2
+	for (int index = 2; index < orig_netlist_copy.nodes[Data::STRINGS_GLOBAL_SINK].index; index++) {
+
+		if (Randomize::DBG) {
+			std::cout << "DBG>  Original graph -- current index: " << index << std::endl;
+		}
+
+		for (auto& node_iter : orig_netlist_copy.nodes) {
+			auto& node = node_iter.second;
+
+			// consider only nodes with current index
+			if (node.index != index) {
+				continue;
+			}
+			// also consider only wire/PO nodes
+			if (!(node.type == Data::Node::Type::Wire || node.type == Data::Node::Type::PO)) {
+				continue;
+			}
+
+			if (Randomize::DBG) {
+				if (node.type == Data::Node::Type::Wire) {
+					std::cout << "DBG>   Current wire node: " << node.name << std::endl;
+				} else {
+					std::cout << "DBG>   Current PO node: " << node.name << std::endl;
+				}
+			}
+
+			// evaluate Boolean value for wire/PO from parent (driver)
+			//
+			// sanity check for single driver
+			if (node.parents.size() != 1) {
+				std::cout << "Randomize> Error -- the following wire/PO node has more than one parent: \"" << node.name << "\"" << std::endl;
+			}
+
+			// parent is gate
+			if (node.parents[0]->type == Data::Node::Type::Gate) {
+
+				auto const* gate = node.parents[0]->gate;
+
+				if (Randomize::DBG) {
+					std::cout << "DBG>    Matching driver: " << gate->name << std::endl;
+				}
+
+				// check among all outputs of the gate
+				bool output_found = false;
+				for (auto const& output : gate->outputs) {
+
+					if (output.second == node.name) {
+
+						if (Randomize::DBG) {
+							std::cout << "DBG>     Driver output: " << output.first << std::endl;
+						}
+
+						// sanity check for multiple driver
+						if (output_found) {
+							std::cout << "Randomize> Error -- the following wire/PO node has more than one driver: \"" << node.name << "\"" << std::endl;
+						}
+						output_found = true;
+
+						// copy Boolean function string
+						std::string function = gate->cell->functions.find(output.first)->second;
+
+						if (Randomize::DBG) {
+							std::cout << "DBG>     Output function: " << function << std::endl;
+						}
+
+						// revise function string with bit values of all the wires/PIs connected to the gate's
+						// inputs
+						for (auto const& input : gate->inputs) {
+
+							// input pin may occur multiple times, replace all occurrence
+							while (function.find(input.first) != std::string::npos) {
+
+								function.replace(
+										// replace input pin word
+										function.find(input.first), input.first.length(),
+										// Boolean value of related node; the node name is captured in the
+										// input of the gate
+										std::to_string(orig_netlist_copy.nodes[input.second].bit)
+									);
+							}
+
+							if (Randomize::DBG) {
+								std::cout << "DBG>      Current input: " << input.first << std::endl;
+								std::cout << "DBG>       Driven by the following node: " << input.second << std::endl;
+								std::cout << "DBG>       Revised output function: " << function << std::endl;
+							}
+						}
+
+						// TODO evaluate Boolean value and assign to node
+						std::istringstream(function) >> node.bit;
+
+						if (Randomize::DBG) {
+							std::cout << "DBG>      Final function value: " << node.bit << std::endl;
+						}
+					}
+				}
+				// log in case no driver was found
+				if (!output_found) {
+					std::cout << "Randomize> Error -- the following wire/PO node has no driver: \"" << node.name << "\"" << std::endl;
+				}
+			}
+			// parent is PI -- just copy Boolean value
+			else if (node.parents[0]->type == Data::Node::Type::PI) {
+				node.bit = node.parents[0]->bit;
+			}
+			// parent is neither PI nor gate; error
+			else {
+				std::cout << "Randomize> Error -- the following node has an incompatible parent: \"" << node.name << "\"" << std::endl;
+			}
+		}
+	}
+
+	// current graph
+	// TODO don't copy and paste; rather factor code above into helper, and call helper here
+
+	// TODO after running all local iterations, use m.lock and m.unlock within evaluateHD to update HD
 }
 
 bool Randomize::checkGraphForCycles(Data::Node const* node) {
