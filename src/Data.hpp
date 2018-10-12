@@ -48,13 +48,23 @@ class Data {
 		// mapping: name, cell
 		std::unordered_map<std::string, Cell> cells;
 
+		// PODs for gates
+		struct Gate {
+			std::string name;
+			Cell const* cell = nullptr;
+
+			// cell pin name, net/pin name
+			std::unordered_map<std::string, std::string> inputs;
+			std::unordered_map<std::string, std::string> outputs;
+		};
+
 		// PODs for graph data
 		struct Node {
 			// name of gate or pin
 			std::string name;
 
-			//enum class type_enum : unsigned {gate, input, output};
-			//type_enum type;
+			enum class Type : unsigned {Dummy, Gate, Wire, PI, PO};
+			Type type;
 
 			std::vector<Node const*> parents;
 			std::vector<Node const*> children;
@@ -70,25 +80,19 @@ class Data {
 			// current Boolean value; required for HD evaluation
 			mutable bool bit = false;
 
+			// pointer to gate, if any
+			Gate const* gate = nullptr;
+
 			Node(
 				std::string n = "",
-				//type_enum type,
+				Type t = Type::Dummy,
 				std::vector<Node const*> p = std::vector<Node const*>(),
 				std::vector<Node const*> c = std::vector<Node const*>()
 			) :
 				name(n),
-				//type(t),
+				type(t),
 				parents(p),
 				children(c) {}
-		};
-
-		// PODs for gates
-		struct Gate {
-			std::string type;
-			std::string name;
-			// cell pin name, net/pin name
-			std::unordered_map<std::string, std::string> inputs;
-			std::unordered_map<std::string, std::string> outputs;
 		};
 
 		// PODs for netlists

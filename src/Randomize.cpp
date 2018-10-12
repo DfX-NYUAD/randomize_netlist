@@ -45,7 +45,7 @@ int main (int argc, char** argv) {
 	Randomize::initGraph(data.netlist.nodes, data.netlist);
 
 	// sanity check for cycles on original graph
-	if (Randomize::checkGraphForCycles(&(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE]))) {
+	if (Randomize::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
 		std::cout << "Randomize> Error: original netlist contains a cycle; exiting ..." << std::endl;
 		exit(1);
 	}
@@ -218,6 +218,24 @@ void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node> con
 
 				std::cout << "DBG>   Index: " << node.index << std::endl;
 
+				switch (node.type) {
+					case Data::Node::Type::Dummy :
+						std::cout << "DBG>   Type: Dummy" << std::endl;
+						break;
+					case Data::Node::Type::Wire :
+						std::cout << "DBG>   Type: Wire" << std::endl;
+						break;
+					case Data::Node::Type::Gate :
+						std::cout << "DBG>   Type: Gate" << std::endl;
+						break;
+					case Data::Node::Type::PI :
+						std::cout << "DBG>   Type: PI" << std::endl;
+						break;
+					case Data::Node::Type::PO :
+						std::cout << "DBG>   Type: PO" << std::endl;
+						break;
+				}
+
 				std::cout << "DBG>   Children [" << node.children.size() << "]:";
 				for (auto const* child : node.children) {
 					std::cout << " \"" << child->name << "\"";
@@ -293,11 +311,11 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 	// add global sink/source as nodes
 	nodes.insert(std::make_pair(
 				Data::STRINGS_GLOBAL_SOURCE,
-				Data::Node(Data::STRINGS_GLOBAL_SOURCE)
+				Data::Node(Data::STRINGS_GLOBAL_SOURCE, Data::Node::Type::Dummy)
 			));
 	nodes.insert(std::make_pair(
 				Data::STRINGS_GLOBAL_SINK,
-				Data::Node(Data::STRINGS_GLOBAL_SINK)
+				Data::Node(Data::STRINGS_GLOBAL_SINK, Data::Node::Type::Dummy)
 			));
 
 	// sanity check whether nodes had been inserted / can be found
@@ -317,7 +335,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		nodes.insert(std::make_pair(
 					input,
-					Data::Node(input)
+					Data::Node(input, Data::Node::Type::PI)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
@@ -338,7 +356,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		nodes.insert(std::make_pair(
 					output,
-					Data::Node(output)
+					Data::Node(output, Data::Node::Type::PO)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
@@ -359,7 +377,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		nodes.insert(std::make_pair(
 					gate.name,
-					Data::Node(gate.name)
+					Data::Node(gate.name, Data::Node::Type::Gate)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
@@ -368,6 +386,9 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << gate.name << "\"" << std::endl;
 			}
 		}
+
+		// also memorize pointer to gate in node
+		nodes[gate.name].gate = &gate;
 	}
 
 	// add wires as nodes
@@ -375,7 +396,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		nodes.insert(std::make_pair(
 					wire,
-					Data::Node(wire)
+					Data::Node(wire, Data::Node::Type::Wire)
 				));
 
 		// sanity check whether nodes had been inserted / can be found

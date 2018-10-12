@@ -448,7 +448,6 @@ void IO::parseNetlist(Data& data) {
 	// 4) parse gates, line by line
 	//
 	Data::Gate new_gate;
-	Data::Cell *cell = nullptr;
 
 	while (std::getline(in, line)) {
 
@@ -468,22 +467,22 @@ void IO::parseNetlist(Data& data) {
 				// dbg
 				//std::cout << "START: " << line << std::endl;
 
-				// make that new_gate is a new instance
+				// new_gate new instance
 				new_gate = Data::Gate();
 
 				// gate type
-				linestream >> new_gate.type;
+				linestream >> tmpstr;
 				// gate name
 				linestream >> new_gate.name;
 
 				// find related cell
-				auto iter = data.cells.find(new_gate.type);
+				auto iter = data.cells.find(tmpstr);
 				if (iter != data.cells.end()) {
-					cell = &(iter->second);
+					new_gate.cell = &(iter->second);
 				}
 				// report error otherwise
 				else {
-					std::cout << "IO>  Error: the gate \"" << new_gate.name << "\" is of type \"" << new_gate.type << "\"";
+					std::cout << "IO>  Error: the gate \"" << new_gate.name << "\" is of type \"" << tmpstr << "\"";
 					std::cout << ", but this type is not covered in your cells.inputs and cells.outputs files ..." << std::endl;
 					std::cout << "IO>  Exiting; check you library and cells.inputs/outputs files" << std::endl;
 					exit(1);
@@ -493,7 +492,7 @@ void IO::parseNetlist(Data& data) {
 			// all lines contains some output/input pin and its connectivity
 			//
 			// check all the output pins of the related cell
-			for (auto const& pin : cell->outputs) {
+			for (auto const& pin : new_gate.cell->outputs) {
 
 				if (line.find("." + pin + "(") != std::string::npos) {
 
@@ -516,7 +515,7 @@ void IO::parseNetlist(Data& data) {
 				}
 			}
 			// check all the input pins of the related cell
-			for (auto const& pin : cell->inputs) {
+			for (auto const& pin : new_gate.cell->inputs) {
 
 				if (line.find("." + pin + "(") != std::string::npos) {
 
@@ -562,7 +561,7 @@ void IO::parseNetlist(Data& data) {
 
 		for (Data::Gate const& gate : data.netlist.gates) {
 
-			std::cout << "IO_DBG>  \"" << gate.type << "\" \"" << gate.name << "\"";
+			std::cout << "IO_DBG>  \"" << gate.cell->type << "\" \"" << gate.name << "\"";
 
 			std::cout << " OUT = ( ";
 			for (auto const& output : gate.outputs) {
@@ -660,7 +659,7 @@ void IO::writeNetlist(Data& data) {
 		unsigned outputs_remaining = gate.outputs.size();
 		unsigned inputs_remaining = gate.inputs.size();
 
-		out << gate.type << " ";
+		out << gate.cell->type << " ";
 		out << gate.name << " ";
 
 		out << "(";
