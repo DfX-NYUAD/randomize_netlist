@@ -14,16 +14,14 @@ class Randomize {
 	// private data, functions
 	private:
 		static void evaluateHD(
-				std::unordered_map<std::string, Data::Node> const& nodes,
+				Data::Netlist orig_netlist_copy,
+				std::unordered_map<std::string, Data::Node> nodes_copy,
+				Data::Netlist const& netlist,
 				double const& iterations,
 				double& HD,
 				std::mutex& m
 			);
 		static void determGraphOrderRec(Data::Node const* node);
-		static void determGraphOrder(
-				std::unordered_map<std::string, Data::Node>& nodes,
-				Data const& data
-			);
 
 		// random-number function
 		//
@@ -43,13 +41,14 @@ class Randomize {
 	// public data, functions
 	public:
 		static void iteration(
-				Data& data,
+				Data const& data,
 				double& HD
 			);
 		static void initGraph(
 				std::unordered_map<std::string, Data::Node>& nodes,
-				Data const& data
+				Data::Netlist const& netlist
 			);
+		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
 		static bool checkGraphForCycles(Data::Node const* node);
 };
 

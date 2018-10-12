@@ -7,7 +7,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
 	if (argc < 6) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs out.v [threads [sampling_iterations]]" << std::endl;
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs out.v [threads [HD_target [sampling_iterations]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': All cells and all their inputs" << std::endl;
@@ -15,6 +15,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		std::cout << "IO> Mandatory parameter ``cells.functions'': All cells and all their output functions" << std::endl;
 		std::cout << "IO> Mandatory parameter ``out.v'': Randomized netlist" << std::endl;
 		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.threads << std::endl;
+		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD: " << data.HD_target << std::endl;
 		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation: " << data.HD_sampling_iterations << std::endl;
 		std::cout << "IO> " << std::endl;
 		exit(1);
@@ -31,8 +32,11 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	if (argc >= 7) {
 		data.threads = std::stoi(argv[6]);
 	}
-	if (argc == 8) {
-		data.HD_sampling_iterations = std::stoi(argv[7]);
+	if (argc >= 8) {
+		data.HD_target = std::stoi(argv[7]);
+	}
+	if (argc == 9) {
+		data.HD_sampling_iterations = std::stoi(argv[8]);
 	}
 
 	// test input files
@@ -47,6 +51,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
 	std::cout << "IO> Parameter ``out.v'': " << data.files.out_netlist << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.threads << std::endl;
+	std::cout << "IO> Parameter ``HD_target'': " << data.HD_target << std::endl;
 	std::cout << "IO> Parameter ``sampling_iterations'': " << data.HD_sampling_iterations << std::endl;
 	std::cout << "IO> " << std::endl;
 };

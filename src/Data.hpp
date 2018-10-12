@@ -17,10 +17,16 @@ class Data {
 
 	// public data
 	public:
+		// names/identifier for global source/sink nodes
+		static const std::string STRINGS_GLOBAL_SOURCE;
+		static const std::string STRINGS_GLOBAL_SINK;
+
 		// threads
 		unsigned threads = 1;
 		// HD sampling iterations
 		unsigned HD_sampling_iterations = 1e6;
+		// desired HD value
+		double HD_target = 0.5;
 
 		// POD for files names
 		struct files {
@@ -57,8 +63,12 @@ class Data {
 			// -1 means undefined, global source will be assigned 0
 			mutable int index = -1;
 
+			// flags for checking for combinatorial loops/cycles
 			mutable bool visited = false;
 			mutable bool recursion = false;
+
+			// current Boolean value; required for HD evaluation
+			mutable bool bit = false;
 
 			Node(
 				std::string n = "",
@@ -71,11 +81,6 @@ class Data {
 				parents(p),
 				children(c) {}
 		};
-		// names/identifier for global source/sink
-		struct globalNodeNames {
-			std::string source = "GLOBAL_SOURCE";
-			std::string sink = "GLOBAL_SINK";
-		} globalNodeNames;
 
 		// PODs for gates
 		struct Gate {
