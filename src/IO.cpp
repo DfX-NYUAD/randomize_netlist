@@ -152,8 +152,8 @@ void IO::parseCells(Data& data) {
 		Data::Cell cell;
 		std::istringstream linestream(line);
 		bool start = true;
-		bool stop = false;
 		std::string function;
+		std::string output_pin;
 
 		// first is cell type
 		linestream >> cell.type;
@@ -166,48 +166,44 @@ void IO::parseCells(Data& data) {
 
 			linestream >> tmpstr;
 
-			// current word is start, end, or both start and end of new function
+			// current word is start or end of new function
 			if (tmpstr.find('"') != std::string::npos) {
 
-				// start, init string
+				// start word, contains output pin
 				if (start) {
-					function = tmpstr;
+					output_pin = tmpstr;
 					start = false;
-
-					// start word is also stop word
-					if (std::count(function.begin(), function.end(), '"') == 2) {
-						stop = true;
-					}
 				}
-				// second, independent occurrence of "; stop
+				// second, independent occurrence of "; stop word
 				else if (!start) {
-					stop = true;
-				}
 
-				// stop, finalize string
-				if (stop) {
-
-					// consider last word of function, but only for functions spread across multiple words, where
-					// there's currently only one occurrence of "
-					if (std::count(function.begin(), function.end(), '"') == 1) {
-						function += " " + tmpstr;
-					}
+					// consider last word of function
+					function += tmpstr;
 
 					//if (IO::DBG) {
 					//	std::cout << "IO_DBG>  \"" << cell.type << "\" FUNCTION: \"" << function << "\"" << std::endl;
 					//}
 
 					// memorize function, but drop the " at the beginning and the end
-					cell.functions.emplace_back(std::string(function.begin() + 1, function.end() - 1));
+					cell.functions.insert(std::make_pair(
+								output_pin.substr(1),
+								std::string(function.begin(), function.end() - 1)
+								//function.substr(0, function.find('"'))
+							));
 
-					// reset start/stop
+					// reset start
 					start = true;
-					stop = false;
 				}
 			}
 			else {
-				// regular word in between, part of current function
-				function += " " + tmpstr;
+				// = occurs after output pin; reset function string
+				if (tmpstr.find('=') != std::string::npos) {
+					function = "";
+				}
+				// regular word in between, build up current function
+				else {
+					function += tmpstr + " ";
+				}
 			}
 		}
 
@@ -217,23 +213,33 @@ void IO::parseCells(Data& data) {
 		if (iter != data.cells.end()) {
 			iter->second.functions = cell.functions;
 
+			if (IO::DBG) {
+				std::cout << "IO_DBG>  \"" << iter->second.type << "\"";
+				std::cout << " OUT = ( ";
+				for (auto const& output : iter->second.outputs) {
+					std::cout << "\"" << output << "\" ";
+				}
+				std::cout << ")";
+				std::cout << " FUNCTIONS = ( ";
+				for (auto const& function : iter->second.functions) {
+					std::cout << "\"" << function.first << "\" = \"" << function.second << "\" ";
+				}
+				std::cout << ")" << std::endl;
+			}
+
 			// cross check number of functions with number of output pins
 			if (iter->second.functions.size() != iter->second.outputs.size()) {
 				std::cout << "IO>  Warning -- the following cell has a different number of outputs and output functions: ";
 				std::cout << "\"" << iter->second.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
 
-				if (IO::DBG) {
-					std::cout << "IO_DBG>  \"" << iter->second.type << "\"";
-					std::cout << " OUT = ( ";
-					for (auto const& output : iter->second.outputs) {
-						std::cout << "\"" << output << "\" ";
-					}
-					std::cout << ")";
-					std::cout << " FUNCTIONS = ( ";
-					for (auto const& function : iter->second.functions) {
-						std::cout << "\"" << function << "\" ";
-					}
-					std::cout << ")" << std::endl;
+			}
+
+			// cross check actual functions with output pins
+			for (auto const& output : iter->second.outputs) {
+
+				if (iter->second.functions.find(output) == iter->second.functions.end()) {
+					std::cout << "IO>  Warning -- the following cell is missing a function for an output pin: ";
+					std::cout << "\"" << iter->second.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
 				}
 			}
 		}
@@ -255,14 +261,14 @@ void IO::parseCells(Data& data) {
 		for (auto const& cell_iter : data.cells) {
 			Data::Cell const& cell = cell_iter.second;
 
-			std::cout << "IO_DBG>  \"" << cell.type << "\"";
+			std::cout << "IO_DBG>  \"" << cell.type << "\" --";
 
-			std::cout << " OUT = ( ";
+			std::cout << " OUT: ( ";
 			for (unsigned i = 0; i < cell.outputs.size(); i++) {
-				std::cout << "\"" << cell.outputs[i] << "\" = \"" << cell.functions[i] << "\" ";
+				std::cout << "\"" << cell.outputs[i] << "\" = \"" << cell.functions.find(cell.outputs[i])->second << "\" ";
 			}
 			std::cout << ")";
-			std::cout << " IN = ( ";
+			std::cout << " IN: ( ";
 			for (auto const& input : cell.inputs) {
 				std::cout << "\"" << input << "\" ";
 			}

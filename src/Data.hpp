@@ -42,7 +42,8 @@ class Data {
 			std::string type;
 			std::vector<std::string> inputs;
 			std::vector<std::string> outputs;
-			std::vector<std::string> functions;
+			// output pin name, Boolean function of input pin names
+			std::unordered_map<std::string, std::string> functions;
 		};
 		// actual container
 		// mapping: name, cell
