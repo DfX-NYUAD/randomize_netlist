@@ -232,8 +232,8 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 							}
 						}
 
-						// TODO evaluate Boolean value and assign to node
-						std::istringstream(function) >> node.bit;
+						// evaluate Boolean value and assign to node
+						node.bit = Randomize::evaluateString(function);
 
 						if (Randomize::DBG) {
 							std::cout << "DBG>      Final function value: " << node.bit << std::endl;
@@ -260,6 +260,155 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 	// TODO don't copy and paste; rather factor code above into helper, and call helper here
 
 	// TODO after running all local iterations, use m.lock and m.unlock within evaluateHD to update HD
+}
+
+bool Randomize::evaluateString(std::string function) {
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Boolean (sub-)string to evaluate: \"" << function << "\"" << std::endl;
+	}
+
+	// recursively evaluate substrings within parentheses, if any
+	//
+	while (function.find('(') != std::string::npos) {
+
+		size_t pos_begin = function.find_last_of('(');
+		size_t pos_end = function.find_first_of(')', pos_begin);
+
+		//if (Randomize::DBG) {
+		//	std::cout << "DBG> pos_begin: " << pos_begin << std::endl;
+		//	std::cout << "DBG> pos_end: " << pos_end << std::endl;
+		//	std::cout << "DBG> substring before recursion: " << function.substr(pos_begin + 1, pos_end - pos_begin - 1) << std::endl;
+		//}
+
+		bool substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1));
+
+		if (Randomize::DBG) {
+			std::cout << "DBG>  Result: " << substring << std::endl;
+		}
+
+		//if (Randomize::DBG) {
+		//	std::cout << "DBG>  Substring after recursion: " << substring << std::endl;
+		//}
+
+		// after returning from recursion, replace the substring with its Boolean value
+		function.replace(pos_begin, pos_end - pos_begin + 1, std::to_string(substring));
+
+		if (Randomize::DBG) {
+			std::cout << "DBG>  Modified Boolean (sub-)string after evaluation: \"" << function << "\"" << std::endl;
+		}
+	}
+
+	// evaluate the substring
+	//
+	if (function.length() <= 2) {
+
+		if (function == "1") {
+			return true;
+		}
+		else if (function == "0") {
+			return false;
+		}
+		else if (function == "!1") {
+			return false;
+		}
+		else if (function == "!0") {
+			return true;
+		}
+		else if (function == "~1") {
+			return false;
+		}
+		else if (function == "~0") {
+			return true;
+		}
+		else {
+			std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+			return false;
+		}
+	}
+	// longer, more complex substring; should be "A OP B"
+	else {
+		std::string token_a, token_b, token_op;
+		bool a, b;
+
+		// first, extract the expected three string tokens
+		//
+		std::istringstream stream(function);
+		stream >> token_a;
+		stream >> token_op;
+		stream >> token_b;
+
+		// second, try to interpret the operands
+		//
+		if (token_a == "1") {
+			a = true;
+		}
+		else if (token_a == "0") {
+			a = false;
+		}
+		else if (token_a == "!1") {
+			a = false;
+		}
+		else if (token_a == "!0") {
+			a = true;
+		}
+		else if (token_a == "~1") {
+			a = false;
+		}
+		else if (token_a == "~0") {
+			a = true;
+		}
+		else {
+			std::cout << "Randomize> Error -- the following Boolean operand could not be parsed correctly: \"" << token_a << "\"" << std::endl;
+			a = false;
+		}
+		if (token_b == "1") {
+			b = true;
+		}
+		else if (token_b == "0") {
+			b = false;
+		}
+		else if (token_b == "!1") {
+			b = false;
+		}
+		else if (token_b == "!0") {
+			b = true;
+		}
+		else if (token_b == "~1") {
+			b = false;
+		}
+		else if (token_b == "~0") {
+			b = true;
+		}
+		else {
+			std::cout << "Randomize> Error -- the following Boolean operand could not be parsed correctly: \"" << token_b << "\"" << std::endl;
+			b = false;
+		}
+
+		// sanity check, stringstream should be empty by now 
+		if (!stream.eof()) {
+			std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+			std::cout << "Randomize>  The following interpretation applies:" << std::endl;
+			std::cout << "Randomize>   Operand a: \"" << a << "\"" << std::endl;
+			std::cout << "Randomize>   Operation: \"" << token_op << "\"" << std::endl;
+			std::cout << "Randomize>   Operand b: \"" << b << "\"" << std::endl;
+		}
+
+		if (token_op == "|") {
+			return (a | b);
+		}
+		else if (token_op == "&") {
+			return (a & b);
+		}
+		else if (token_op == "^") {
+			return (a ^ b);
+		}
+		// sanity check for operation
+		else {
+			std::cout << "Randomize> Error -- the following Boolean operation could not be parsed correctly: \"" << token_op << "\"" << std::endl;
+			return false;
+		}
+	}
 }
 
 bool Randomize::checkGraphForCycles(Data::Node const* node) {

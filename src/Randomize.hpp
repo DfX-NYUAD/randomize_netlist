@@ -22,6 +22,7 @@ class Randomize {
 				std::mutex& m
 			);
 		static void determGraphOrderRec(Data::Node const* node);
+		static bool evaluateString(std::string function);
 
 		// random-number function
 		//
