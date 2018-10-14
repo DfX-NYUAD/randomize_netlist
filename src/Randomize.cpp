@@ -120,7 +120,7 @@ void Randomize::iteration(Data const& data, double& HD) {
 }
 
 void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, Data::Netlist const& netlist, double const& iterations, double& HD, std::mutex& m) {
-	double HD_local = 0;
+	double HD_local;
 
 	if (Randomize::DBG) {
 		std::cout << "DBG> Evaluate HD ..." << std::endl;
@@ -138,19 +138,67 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 		}
 	}
 
-	// original graph
+	// second, evaluate all bit values for both graphs
 	//
+	if (Randomize::DBG) {
+		std::cout << "DBG> Evaluate original graph/netlist" << std::endl;
+	}
+
+	Randomize::evaluateHDHelper(orig_netlist_copy.nodes);
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Done" << std::endl;
+		std::cout << "DBG> Evaluate current graph/netlist" << std::endl;
+	}
+
+	Randomize::evaluateHDHelper(nodes_copy);
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Done" << std::endl;
+	}
+
+	// third, evaluate HD
+	//
+	HD_local = 0.0;
+	for (auto const& output : orig_netlist_copy.outputs) {
+
+		if (orig_netlist_copy.nodes[output].bit != nodes_copy[output].bit) {
+			HD_local++;
+		}
+
+		// dbg log of output bits
+		if (Randomize::DBG) {
+
+			std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_netlist_copy.nodes[output].bit << std::endl;
+			std::cout << "DBG>  Current graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
+		}
+	}
+	HD_local /= orig_netlist_copy.outputs.size();
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Curent HD: " << HD_local << std::endl;
+	}
+
+	// TODO after running all local iterations, use m.lock and m.unlock within evaluateHD to update HD
+
+	if (Randomize::DBG) {
+		std::cout << "DBG> Evaluate HD done" << std::endl;
+	}
+}
+
+void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes) {
+
 	// index by index, propagate these random inputs through the whole netlist/graph; note that walking over linked graph could not
 	// guarantee that the Boolean value of the parents is already computed, that can only be achieved when considering the indices
 	//
 	// regular nodes start with index 2
-	for (int index = 2; index < orig_netlist_copy.nodes[Data::STRINGS_GLOBAL_SINK].index; index++) {
+	for (int index = 2; index < nodes[Data::STRINGS_GLOBAL_SINK].index; index++) {
 
 		if (Randomize::DBG) {
-			std::cout << "DBG>  Original graph -- current index: " << index << std::endl;
+			std::cout << "DBG>  Evaluate Boolean assignments -- current graph index: " << index << std::endl;
 		}
 
-		for (auto& node_iter : orig_netlist_copy.nodes) {
+		for (auto& node_iter : nodes) {
 			auto& node = node_iter.second;
 
 			// consider only nodes with current index
@@ -221,7 +269,7 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 										function.find(input.first), input.first.length(),
 										// Boolean value of related node; the node name is captured in the
 										// input of the gate
-										std::to_string(orig_netlist_copy.nodes[input.second].bit)
+										std::to_string(nodes[input.second].bit)
 									);
 							}
 
@@ -255,11 +303,6 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 			}
 		}
 	}
-
-	// current graph
-	// TODO don't copy and paste; rather factor code above into helper, and call helper here
-
-	// TODO after running all local iterations, use m.lock and m.unlock within evaluateHD to update HD
 }
 
 bool Randomize::evaluateString(std::string function) {
