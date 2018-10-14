@@ -41,10 +41,7 @@ class Randomize {
 
 	// public data, functions
 	public:
-		static void iteration(
-				Data const& data,
-				double& HD
-			);
+		static void iteration(Data& data, double& HD);
 		static void initGraph(Data::Netlist& netlist);
 		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
 		static bool checkGraphForCycles(Data::Node const* node);

@@ -24,7 +24,7 @@ class Data {
 		// threads
 		unsigned threads = 1;
 		// HD sampling iterations
-		unsigned HD_sampling_iterations = 1e6;
+		unsigned HD_sampling_iterations = 1e4;
 		// desired HD value
 		double HD_target = 0.5;
 
@@ -111,7 +111,7 @@ class Data {
 			// graph container
 			// mapping: name, node
 			std::unordered_map<std::string, Data::Node> nodes;
-		} netlist;
+		} netlist, netlist_original;
 };
 
 #endif

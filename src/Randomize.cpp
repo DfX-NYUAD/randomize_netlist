@@ -54,19 +54,25 @@ int main (int argc, char** argv) {
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
 	Randomize::determGraphOrder(data.netlist.nodes);
 
+	// also back up original netlist separately, as data.netlist will be overwritten during the iterations below
+	data.netlist_original = data.netlist;
+	// re-run initGraph and determGraphOrder, since the underlying data is a copy
+	Randomize::initGraph(data.netlist_original);
+	Randomize::determGraphOrder(data.netlist_original.nodes);
+
 	// now, iteratively run random modifications on graph copies, until HD approaches desired value
 	//
-	iter = 0;
+	iter = 1;
 	HD = 0.0;
 	do {
-		iter++;
-		Randomize::iteration(data, HD);
 
 		std::cout << "Randomize> Iteration: " << iter << std::endl;
+
+		Randomize::iteration(data, HD);
+
 		std::cout << "Randomize>  Current HD: " << HD << std::endl;
 
-		// TODO drop once randomization is done
-		break;
+		iter++;
 	}
 	while (HD < data.HD_target);
 
@@ -79,15 +85,13 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize>" << std::endl;
 };
 
-void Randomize::iteration(Data const& data, double& HD) {
+void Randomize::iteration(Data& data, double& HD) {
 	// threads
 	std::vector<std::thread> threads;
 	std::mutex m;
-	// local netlist copy
-	Data::Netlist netlist;
 
-	// init the local netlist
-	netlist = data.netlist;
+	// init a local netlist from the current global one (not the original one)
+	Data::Netlist netlist = data.netlist;
 
 	// TODO random operation on local netlist
 	//
@@ -108,7 +112,7 @@ void Randomize::iteration(Data const& data, double& HD) {
 	for (unsigned t = 0; t < data.threads; t++) {
 		// pass original netlist and local graph as copies, since the threads have to work on separate data sets
 		// HD will be summed up in the threads (using the mutex)
-		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, netlist.nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
+		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist_original, netlist.nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
 	}
 	// join threads; the main thread execution will pause until all threads are done
 	for (std::thread& t : threads) {
@@ -122,6 +126,7 @@ void Randomize::iteration(Data const& data, double& HD) {
 	// if HD improved, make local netlist the new global netlist
 	if (HD_threads > HD) {
 		HD = HD_threads;
+		data.netlist = std::move(netlist);
 	}
 }
 
@@ -671,6 +676,9 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 	if (Randomize::DBG) {
 		std::cout << "DBG> Initializing the graph ..." << std::endl;
 	}
+
+	// it is important to clear any previous graph data
+	netlist.nodes.clear();
 
 	// add global sink/source as nodes
 	netlist.nodes.insert(std::make_pair(
