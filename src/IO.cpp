@@ -7,7 +7,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
 	if (argc < 6) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs out.v [threads [HD_target [sampling_iterations]]]" << std::endl;
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [sampling_iterations]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': All cells and all their inputs" << std::endl;
