@@ -33,7 +33,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		data.threads = std::stoi(argv[6]);
 	}
 	if (argc >= 8) {
-		data.HD_target = std::stoi(argv[7]);
+		data.HD_target = std::stod(argv[7]);
 	}
 	if (argc == 9) {
 		data.HD_sampling_iterations = std::stoi(argv[8]);
