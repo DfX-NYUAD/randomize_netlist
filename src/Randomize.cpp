@@ -94,6 +94,22 @@ void Randomize::iteration(Data& data, double& HD) {
 	Data::Netlist netlist = data.netlist;
 
 	// TODO random operation on local netlist
+	// 1) swap gate type:
+	// 	keep driving strength, but alter function
+	// 	new function should provide same number of outputs/output functions
+	// 	ensure that new output pin names are reconnected to old output nets
+	// 2) swap output connectivity:
+	// 	select two outputs (of different gates) with same number of fan-out
+	// 	swap the output nets
+	// 4) swap input connectivity:
+	// 	select two inputs (of different gates)
+	// 	swap the input nets
+	// 3) delete gate:
+	// 	replace all output nets with some of the input nets
+	// 4) insert gate:
+	// 	pick some net randomly
+	// 	insert gate within net, i.e., decompose net into input and output part
+	// 	pick remaining input nets for gate randomly from netlist
 	//
 	// init the local graph 
 	Randomize::initGraph(netlist);
