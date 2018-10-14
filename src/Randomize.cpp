@@ -42,7 +42,7 @@ int main (int argc, char** argv) {
 	// data.  Besides, the alternative of initializing the graph once and then rewriting all the pointers for a graph copy would
 	// probably not help much for performance.
 	//
-	Randomize::initGraph(data.netlist.nodes, data.netlist);
+	Randomize::initGraph(data.netlist);
 
 	// sanity check for cycles on original graph
 	if (Randomize::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
@@ -83,9 +83,7 @@ void Randomize::iteration(Data const& data, double& HD) {
 	// threads
 	std::vector<std::thread> threads;
 	std::mutex m;
-	// local graph data
-	std::unordered_map<std::string, Data::Node> nodes;
-	// local netlist data
+	// local netlist copy
 	Data::Netlist netlist;
 
 	// init the local netlist
@@ -94,14 +92,14 @@ void Randomize::iteration(Data const& data, double& HD) {
 	// TODO random operation on local netlist
 	//
 	// init the local graph 
-	Randomize::initGraph(nodes, netlist);
+	Randomize::initGraph(netlist);
 
 	// TODO if a new gate has been inserted, check for loops
 	// TODO if connectivity has been swapped, check for loops
 
 	// determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
-	Randomize::determGraphOrder(nodes);
+	Randomize::determGraphOrder(netlist.nodes);
 
 	// evaluate HD in parallel
 	threads.reserve(data.threads);
@@ -110,7 +108,7 @@ void Randomize::iteration(Data const& data, double& HD) {
 	for (unsigned t = 0; t < data.threads; t++) {
 		// pass original netlist and local graph as copies, since the threads have to work on separate data sets
 		// HD will be summed up in the threads (using the mutex)
-		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
+		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, netlist.nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
 	}
 	// join threads; the main thread execution will pause until all threads are done
 	for (std::thread& t : threads) {
@@ -668,18 +666,18 @@ void Randomize::determGraphOrderRec(Data::Node const* node) {
 	}
 }
 
-void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Data::Netlist const& netlist) {
+void Randomize::initGraph(Data::Netlist& netlist) {
 
 	if (Randomize::DBG) {
 		std::cout << "DBG> Initializing the graph ..." << std::endl;
 	}
 
 	// add global sink/source as nodes
-	nodes.insert(std::make_pair(
+	netlist.nodes.insert(std::make_pair(
 				Data::STRINGS_GLOBAL_SOURCE,
 				Data::Node(Data::STRINGS_GLOBAL_SOURCE, Data::Node::Type::Dummy)
 			));
-	nodes.insert(std::make_pair(
+	netlist.nodes.insert(std::make_pair(
 				Data::STRINGS_GLOBAL_SINK,
 				Data::Node(Data::STRINGS_GLOBAL_SINK, Data::Node::Type::Dummy)
 			));
@@ -687,10 +685,10 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 	// sanity check whether nodes had been inserted / can be found
 	if (Randomize::DBG) {
 
-		if (nodes.find(Data::STRINGS_GLOBAL_SOURCE) == nodes.end()) {
+		if (netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE) == netlist.nodes.end()) {
 			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_SOURCE << "\"" << std::endl;
 		}
-		if (nodes.find(Data::STRINGS_GLOBAL_SINK) == nodes.end()) {
+		if (netlist.nodes.find(Data::STRINGS_GLOBAL_SINK) == netlist.nodes.end()) {
 			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_SINK << "\"" << std::endl;
 		}
 	}
@@ -699,75 +697,75 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 	// 
 	for (auto const& input : netlist.inputs) {
 
-		nodes.insert(std::make_pair(
+		netlist.nodes.insert(std::make_pair(
 					input,
 					Data::Node(input, Data::Node::Type::PI)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
 		if (Randomize::DBG) {
-			if (nodes.find(input) == nodes.end()) {
+			if (netlist.nodes.find(input) == netlist.nodes.end()) {
 				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << input << "\"" << std::endl;
 			}
 		}
 
 		// also add new node for primary inputs as child to global source
-		nodes[Data::STRINGS_GLOBAL_SOURCE].children.emplace_back( &(nodes[input]) );
+		netlist.nodes[Data::STRINGS_GLOBAL_SOURCE].children.emplace_back( &(netlist.nodes[input]) );
 		// also add global source as parent for new node
-		nodes[input].parents.emplace_back( &nodes[Data::STRINGS_GLOBAL_SOURCE] );
+		netlist.nodes[input].parents.emplace_back( &netlist.nodes[Data::STRINGS_GLOBAL_SOURCE] );
 	}
 
 	// add outputs as nodes
 	for (auto const& output : netlist.outputs) {
 
-		nodes.insert(std::make_pair(
+		netlist.nodes.insert(std::make_pair(
 					output,
 					Data::Node(output, Data::Node::Type::PO)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
 		if (Randomize::DBG) {
-			if (nodes.find(output) == nodes.end()) {
+			if (netlist.nodes.find(output) == netlist.nodes.end()) {
 				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << output << "\"" << std::endl;
 			}
 		}
 
 		// also add global sink as child for new node
-		nodes[output].children.emplace_back( &(nodes[Data::STRINGS_GLOBAL_SINK]) );
+		netlist.nodes[output].children.emplace_back( &(netlist.nodes[Data::STRINGS_GLOBAL_SINK]) );
 		// also add new node as parent for global sink
-		nodes[Data::STRINGS_GLOBAL_SINK].parents.emplace_back( &(nodes[output]) );
+		netlist.nodes[Data::STRINGS_GLOBAL_SINK].parents.emplace_back( &(netlist.nodes[output]) );
 	}
 
 	// add gates as nodes
 	for (auto const& gate : netlist.gates) {
 
-		nodes.insert(std::make_pair(
+		netlist.nodes.insert(std::make_pair(
 					gate.name,
 					Data::Node(gate.name, Data::Node::Type::Gate)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
 		if (Randomize::DBG) {
-			if (nodes.find(gate.name) == nodes.end()) {
+			if (netlist.nodes.find(gate.name) == netlist.nodes.end()) {
 				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << gate.name << "\"" << std::endl;
 			}
 		}
 
 		// also memorize pointer to gate in node
-		nodes[gate.name].gate = &gate;
+		netlist.nodes[gate.name].gate = &gate;
 	}
 
 	// add wires as nodes
 	for (auto const& wire : netlist.wires) {
 
-		nodes.insert(std::make_pair(
+		netlist.nodes.insert(std::make_pair(
 					wire,
 					Data::Node(wire, Data::Node::Type::Wire)
 				));
 
 		// sanity check whether nodes had been inserted / can be found
 		if (Randomize::DBG) {
-			if (nodes.find(wire) == nodes.end()) {
+			if (netlist.nodes.find(wire) == netlist.nodes.end()) {
 				std::cout << "DBG>  Error: the following node was not inserted/found: \"" << wire << "\"" << std::endl;
 			}
 		}
@@ -775,7 +773,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 	// connect graph based on connectivity of gates
 	for (auto const& gate : netlist.gates) {
-		auto const& gate_iter = nodes.find(gate.name);
+		auto const& gate_iter = netlist.nodes.find(gate.name);
 
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Gate: \"" << gate.name << "\"" << std::endl;
@@ -785,14 +783,14 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 		//
 		// gate.inputs: cell pin is key, pin/net name is value
 		for (auto const& input_iter : gate.inputs) {
-			auto const& node_iter = nodes.find(input_iter.second);
+			auto const& node_iter = netlist.nodes.find(input_iter.second);
 
 			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>   Input pin: \"" << input_iter.first << "\"" << std::endl;
 			}
 
 			// there's a node matching the input of the gate
-			if (node_iter != nodes.end()) {
+			if (node_iter != netlist.nodes.end()) {
 
 				if (Randomize::DBG_VERBOSE) {
 					std::cout << "DBG>    Connected node: \"" << node_iter->first << "\"" << std::endl;
@@ -819,14 +817,14 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 		//
 		// gate.outputs: cell pin is key, pin/net name is value
 		for (auto const& output_iter : gate.outputs) {
-			auto const& node_iter = nodes.find(output_iter.second);
+			auto const& node_iter = netlist.nodes.find(output_iter.second);
 
 			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>   Output pin: \"" << output_iter.first << "\"" << std::endl;
 			}
 
 			// there's a node matching the output of the gate
-			if (node_iter != nodes.end()) {
+			if (node_iter != netlist.nodes.end()) {
 
 				if (Randomize::DBG_VERBOSE) {
 					std::cout << "DBG>    Connected node: \"" << node_iter->first << "\"" << std::endl;
@@ -858,7 +856,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 
 		// count all edges
 		int edges = 0;
-		for (auto const& node_iter : nodes) {
+		for (auto const& node_iter : netlist.nodes) {
 			auto const& node = node_iter.second;
 
 			edges += node.children.size();
@@ -882,7 +880,7 @@ void Randomize::initGraph(std::unordered_map<std::string, Data::Node>& nodes, Da
 		}
 
 		std::cout << "DBG> Done" << std::endl;
-		std::cout << "DBG>  Nodes: " << nodes.size() << std::endl;
+		std::cout << "DBG>  Nodes: " << netlist.nodes.size() << std::endl;
 		std::cout << "DBG>  Edges: " << edges << std::endl;
 		std::cout << "DBG> " << std::endl;
 	}

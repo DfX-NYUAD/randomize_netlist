@@ -45,10 +45,7 @@ class Randomize {
 				Data const& data,
 				double& HD
 			);
-		static void initGraph(
-				std::unordered_map<std::string, Data::Node>& nodes,
-				Data::Netlist const& netlist
-			);
+		static void initGraph(Data::Netlist& netlist);
 		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
 		static bool checkGraphForCycles(Data::Node const* node);
 };
