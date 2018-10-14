@@ -16,9 +16,8 @@ class Randomize {
 		static void evaluateHD(
 				Data::Netlist orig_netlist_copy,
 				std::unordered_map<std::string, Data::Node> nodes_copy,
-				Data::Netlist const& netlist,
-				double const& iterations,
-				double& HD,
+				unsigned const& iterations,
+				double& HD_threads,
 				std::mutex& m
 			);
 		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes);

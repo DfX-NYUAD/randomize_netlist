@@ -96,7 +96,8 @@ void Randomize::iteration(Data const& data, double& HD) {
 	// init the local graph 
 	Randomize::initGraph(nodes, netlist);
 
-	// TODO if a new gate has been inserted, check for loop
+	// TODO if a new gate has been inserted, check for loops
+	// TODO if connectivity has been swapped, check for loops
 
 	// determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
@@ -104,10 +105,12 @@ void Randomize::iteration(Data const& data, double& HD) {
 
 	// evaluate HD in parallel
 	threads.reserve(data.threads);
-	double const iterations_per_thread = data.HD_sampling_iterations / data.threads;
-	for (unsigned t = 1; t <= data.threads; t++) {
+	unsigned const iterations_per_thread = std::ceil(static_cast<double>(data.HD_sampling_iterations) / data.threads);
+	double HD_threads = 0.0;
+	for (unsigned t = 0; t < data.threads; t++) {
 		// pass original netlist and local graph as copies, since the threads have to work on separate data sets
-		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, nodes, std::ref(netlist), std::ref(iterations_per_thread), std::ref(HD), std::ref(m)) );
+		// HD will be summed up in the threads (using the mutex)
+		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist, nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
 	}
 	// join threads; the main thread execution will pause until all threads are done
 	for (std::thread& t : threads) {
@@ -115,73 +118,101 @@ void Randomize::iteration(Data const& data, double& HD) {
 	}
 	// clean up all threads
 	threads.clear();
+	// normalize HD summed up across all threads
+	HD_threads /= data.threads;
 
-	// TODO if HD improved, make local netlist the new global netlist
+	// if HD improved, make local netlist the new global netlist
+	if (HD_threads > HD) {
+		HD = HD_threads;
+	}
 }
 
-void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, Data::Netlist const& netlist, double const& iterations, double& HD, std::mutex& m) {
+void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, unsigned const& iterations, double& HD_threads, std::mutex& m) {
+	// HD for this call/thread
 	double HD_local;
+	// HD for each iteration within this call/thread
+	double HD_curr_iter;
 
 	if (Randomize::DBG) {
 		std::cout << "DBG> Evaluate HD ..." << std::endl;
 	}
 
-	// TODO repeat for iterations
-
-	// first, randomly assign the same bits to the input nodes in the original and the current graph
-	//
-	for (auto const& input : orig_netlist_copy.inputs) {
-		orig_netlist_copy.nodes[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
-
-		if (Randomize::DBG) {
-			std::cout << "DBG>   Assign the following random bit to PI \"" << input << "\": " << orig_netlist_copy.nodes[input].bit << std::endl;
-		}
-	}
-
-	// second, evaluate all bit values for both graphs
-	//
-	if (Randomize::DBG) {
-		std::cout << "DBG> Evaluate original graph/netlist" << std::endl;
-	}
-
-	Randomize::evaluateHDHelper(orig_netlist_copy.nodes);
-
-	if (Randomize::DBG) {
-		std::cout << "DBG> Done" << std::endl;
-		std::cout << "DBG> Evaluate current graph/netlist" << std::endl;
-	}
-
-	Randomize::evaluateHDHelper(nodes_copy);
-
-	if (Randomize::DBG) {
-		std::cout << "DBG> Done" << std::endl;
-	}
-
-	// third, evaluate HD
+	// run multiple iterations
 	//
 	HD_local = 0.0;
-	for (auto const& output : orig_netlist_copy.outputs) {
+	for (unsigned it = 1; it <= iterations; it++) {
 
-		if (orig_netlist_copy.nodes[output].bit != nodes_copy[output].bit) {
-			HD_local++;
-		}
-
-		// dbg log of output bits
 		if (Randomize::DBG) {
-
-			std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_netlist_copy.nodes[output].bit << std::endl;
-			std::cout << "DBG>  Current graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
+			std::cout << "DBG> Iteration: " << it << "/" << iterations << std::endl;
 		}
+
+		// first, randomly assign the same bits to the input nodes in the original and the current graph
+		//
+		for (auto const& input : orig_netlist_copy.inputs) {
+			orig_netlist_copy.nodes[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
+
+			if (Randomize::DBG) {
+				std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_netlist_copy.nodes[input].bit << std::endl;
+			}
+		}
+
+		// second, evaluate all bit values for both graphs
+		//
+		if (Randomize::DBG) {
+			std::cout << "DBG> Evaluate original graph/netlist" << std::endl;
+		}
+
+		Randomize::evaluateHDHelper(orig_netlist_copy.nodes);
+
+		if (Randomize::DBG) {
+			std::cout << "DBG> Done" << std::endl;
+			std::cout << "DBG> Evaluate current graph/netlist" << std::endl;
+		}
+
+		Randomize::evaluateHDHelper(nodes_copy);
+
+		if (Randomize::DBG) {
+			std::cout << "DBG> Done" << std::endl;
+		}
+
+		// third, evaluate HD
+		//
+		HD_curr_iter = 0.0;
+		for (auto const& output : orig_netlist_copy.outputs) {
+
+			if (orig_netlist_copy.nodes[output].bit != nodes_copy[output].bit) {
+				HD_curr_iter++;
+			}
+
+			// dbg log of output bits
+			if (Randomize::DBG) {
+
+				std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_netlist_copy.nodes[output].bit << std::endl;
+				std::cout << "DBG>  Current graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
+			}
+		}
+		// HD of this current iteration
+		HD_curr_iter /= orig_netlist_copy.outputs.size();
+
+		if (Randomize::DBG) {
+			std::cout << "DBG> HD for current iteration: " << HD_curr_iter << std::endl;
+		}
+
+		// update HD of this thread 
+		HD_local += HD_curr_iter;
 	}
-	HD_local /= orig_netlist_copy.outputs.size();
+
+	// after running all iterations
+	//
+	// normalize HD
+	HD_local /= HD_curr_iter;
+	// sum up HD across all threads, using the mutex
+	m.lock();
+	HD_threads += HD_local;
+	m.unlock();
 
 	if (Randomize::DBG) {
-		std::cout << "DBG> Curent HD: " << HD_local << std::endl;
-	}
-
-	// TODO after running all local iterations, use m.lock and m.unlock within evaluateHD to update HD
-
-	if (Randomize::DBG) {
+		std::cout << "DBG> HD for this thread: " << HD_local << std::endl;
 		std::cout << "DBG> Evaluate HD done" << std::endl;
 	}
 }
