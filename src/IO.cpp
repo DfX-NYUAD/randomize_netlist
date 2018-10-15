@@ -87,11 +87,25 @@ void IO::parseCells(Data& data) {
 		// first is cell type
 		linestream >> cell.type;
 
+		// also memorize type and driving strength separately
+		// presume that driving strength comes after '_'
+		size_t driving_strength = cell.type.find('_');
+		if (driving_strength != std::string::npos) {
+			cell.type_wo_strength = cell.type.substr(0, driving_strength);
+			cell.strength = cell.type.substr(driving_strength);
+		}
+		// otherwise, driving strength could not be parsed
+		else {
+			cell.type_wo_strength = cell.type;
+			std::cout << "IO>  Warning -- the driving strength of the following cell could not been parsed: ";
+			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files!" << std::endl;
+		}
+
 		// then, any number of I/O pins can follow
 		while (!linestream.eof()) {
 
 			linestream >> tmpstr;
-			cell.inputs.emplace_back(tmpstr);
+			cell.inputs.insert(tmpstr);
 		}
 
 		// memorize parsed cell
@@ -123,7 +137,7 @@ void IO::parseCells(Data& data) {
 		while (!linestream.eof()) {
 
 			linestream >> tmpstr;
-			cell.outputs.emplace_back(tmpstr);
+			cell.outputs.insert(tmpstr);
 		}
 
 		// update existing cells or log warning
@@ -215,6 +229,7 @@ void IO::parseCells(Data& data) {
 
 			if (IO::DBG) {
 				std::cout << "IO_DBG>  \"" << iter->second.type << "\"";
+				std::cout << " (" << iter->second.type_wo_strength << "; " << iter->second.strength << ")";
 				std::cout << " OUT = ( ";
 				for (auto const& output : iter->second.outputs) {
 					std::cout << "\"" << output << "\" ";
@@ -264,8 +279,8 @@ void IO::parseCells(Data& data) {
 			std::cout << "IO_DBG>  \"" << cell.type << "\" --";
 
 			std::cout << " OUT: ( ";
-			for (unsigned i = 0; i < cell.outputs.size(); i++) {
-				std::cout << "\"" << cell.outputs[i] << "\" = \"" << cell.functions.find(cell.outputs[i])->second << "\" ";
+			for (auto const& output : cell.outputs) {
+				std::cout << "\"" << output << "\" = \"" << cell.functions.find(output)->second << "\" ";
 			}
 			std::cout << ")";
 			std::cout << " IN: ( ";

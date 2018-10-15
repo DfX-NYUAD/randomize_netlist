@@ -24,7 +24,7 @@ class Data {
 		// threads
 		unsigned threads = 1;
 		// HD sampling iterations
-		unsigned HD_sampling_iterations = 1e4;
+		unsigned HD_sampling_iterations = 1e3;
 		// desired HD value
 		double HD_target = 0.5;
 
@@ -40,8 +40,10 @@ class Data {
 		// PODs for cells
 		struct Cell {
 			std::string type;
-			std::vector<std::string> inputs;
-			std::vector<std::string> outputs;
+			std::string type_wo_strength;
+			std::string strength;
+			std::set<std::string> inputs;
+			std::set<std::string> outputs;
 			// output pin name, Boolean function of input pin names
 			std::unordered_map<std::string, std::string> functions;
 		};
@@ -112,6 +114,15 @@ class Data {
 			// mapping: name, node
 			std::unordered_map<std::string, Data::Node> nodes;
 		} netlist, netlist_original;
+
+		// PODs for tracking modifications statistic
+		struct NetlistModifications {
+			unsigned replacedCells = 0;
+			unsigned swappedInputs = 0;
+			unsigned swappedOutputs = 0;
+			unsigned deletedGates = 0;
+			unsigned insertedGates = 0;
+		} netlist_modifications;
 };
 
 #endif
