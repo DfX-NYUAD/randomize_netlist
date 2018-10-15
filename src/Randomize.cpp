@@ -335,7 +335,7 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 		for (auto const& input : orig_netlist_copy.inputs) {
 			orig_netlist_copy.nodes[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
 
-			if (Randomize::DBG) {
+			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_netlist_copy.nodes[input].bit << std::endl;
 			}
 		}
@@ -369,7 +369,7 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 			}
 
 			// dbg log of output bits
-			if (Randomize::DBG) {
+			if (Randomize::DBG_VERBOSE) {
 
 				std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_netlist_copy.nodes[output].bit << std::endl;
 				std::cout << "DBG>  Current graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
@@ -415,7 +415,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 	// regular nodes start with index 2
 	for (int index = 2; index < nodes[Data::STRINGS_GLOBAL_SINK].index; index++) {
 
-		if (Randomize::DBG) {
+		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Evaluate Boolean assignments -- current graph index: " << index << std::endl;
 		}
 
@@ -431,7 +431,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 				continue;
 			}
 
-			if (Randomize::DBG) {
+			if (Randomize::DBG_VERBOSE) {
 				if (node.type == Data::Node::Type::Wire) {
 					std::cout << "DBG>   Current wire node: " << node.name << std::endl;
 				} else {
@@ -451,7 +451,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 
 				auto const* gate = node.parents[0]->gate;
 
-				if (Randomize::DBG) {
+				if (Randomize::DBG_VERBOSE) {
 					std::cout << "DBG>    Matching driver: " << gate->name << std::endl;
 				}
 
@@ -461,7 +461,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 
 					if (output.second == node.name) {
 
-						if (Randomize::DBG) {
+						if (Randomize::DBG_VERBOSE) {
 							std::cout << "DBG>     Driver output: " << output.first << std::endl;
 						}
 
@@ -474,7 +474,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 						// copy Boolean function string
 						std::string function = gate->cell->functions.find(output.first)->second;
 
-						if (Randomize::DBG) {
+						if (Randomize::DBG_VERBOSE) {
 							std::cout << "DBG>     Output function: " << function << std::endl;
 						}
 
@@ -494,7 +494,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 									);
 							}
 
-							if (Randomize::DBG) {
+							if (Randomize::DBG_VERBOSE) {
 								std::cout << "DBG>      Current input: " << input.first << std::endl;
 								std::cout << "DBG>       Driven by the following node: " << input.second << std::endl;
 								std::cout << "DBG>       Revised output function: " << function << std::endl;
@@ -504,7 +504,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 						// evaluate Boolean value and assign to node
 						node.bit = Randomize::evaluateString(function);
 
-						if (Randomize::DBG) {
+						if (Randomize::DBG_VERBOSE) {
 							std::cout << "DBG>      Final function value: " << node.bit << std::endl;
 						}
 					}
@@ -528,7 +528,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 
 bool Randomize::evaluateString(std::string function) {
 
-	if (Randomize::DBG) {
+	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Boolean (sub-)string to evaluate: \"" << function << "\"" << std::endl;
 	}
 
@@ -539,7 +539,7 @@ bool Randomize::evaluateString(std::string function) {
 		size_t pos_begin = function.find_last_of('(');
 		size_t pos_end = function.find_first_of(')', pos_begin);
 
-		//if (Randomize::DBG) {
+		//if (Randomize::DBG_VERBOSE) {
 		//	std::cout << "DBG> pos_begin: " << pos_begin << std::endl;
 		//	std::cout << "DBG> pos_end: " << pos_end << std::endl;
 		//	std::cout << "DBG> substring before recursion: " << function.substr(pos_begin + 1, pos_end - pos_begin - 1) << std::endl;
@@ -547,18 +547,18 @@ bool Randomize::evaluateString(std::string function) {
 
 		bool substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1));
 
-		if (Randomize::DBG) {
+		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Result: " << substring << std::endl;
 		}
 
-		//if (Randomize::DBG) {
+		//if (Randomize::DBG_VERBOSE) {
 		//	std::cout << "DBG>  Substring after recursion: " << substring << std::endl;
 		//}
 
 		// after returning from recursion, replace the substring with its Boolean value
 		function.replace(pos_begin, pos_end - pos_begin + 1, std::to_string(substring));
 
-		if (Randomize::DBG) {
+		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Modified Boolean (sub-)string after evaluation: \"" << function << "\"" << std::endl;
 		}
 	}
@@ -677,7 +677,7 @@ bool Randomize::evaluateString(std::string function) {
 
 bool Randomize::checkGraphForCycles(Data::Node const* node) {
 
-	if (Randomize::DBG) {
+	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Check graph for cycles; consider node: " << node->name << std::endl;
 	}
 
@@ -686,7 +686,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 	//
 	if (!node->visited) {
 
-		if (Randomize::DBG) {
+		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Proceed with node \"" << node->name <<"\";";
 			std::cout << " not visited yet; mark as visited and as part of recursion" << std::endl;
 		}
@@ -699,7 +699,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 		for (unsigned c = 0; c < node->children.size(); c++) {
 			auto const* child = node->children[c];
 
-			if (Randomize::DBG) {
+			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>   Consider node \"" << node->name << "\"'s child: \"" << child->name << "\"";
 				std::cout << "; child " << c + 1 << "/" << node->children.size() << std::endl;
 			}
@@ -708,7 +708,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			//
 			if (!child->visited && Randomize::checkGraphForCycles(child)) {
 
-				if (Randomize::DBG) {
+				if (Randomize::DBG_VERBOSE) {
 					std::cout << "DBG> Return from recursive check of node \"" << node->name << "\"'s child: \"" << child->name << "\"";
 					std::cout << "; a cycle was found ..." << std::endl;
 				}
@@ -720,7 +720,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			//
 			else if (child->recursion) {
 
-				if (Randomize::DBG) {
+				if (Randomize::DBG_VERBOSE) {
 					std::cout << "DBG>   Cycle found; passed this node \"" << child->name << "\" already during recursion" << std::endl;
 				}
 
@@ -730,7 +730,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 			// to some child node, which is fine
 			// 
 			else {
-				if (Randomize::DBG) {
+				if (Randomize::DBG_VERBOSE) {
 					std::cout << "DBG>   Cleared node \"" << node->name << "\"'s child: " << child->name;
 					std::cout << "; child " << c + 1 << "/" << node->children.size() << std::endl;
 				}
@@ -738,7 +738,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 		}
 	}
 
-	if (Randomize::DBG) {
+	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Check graph for cycles; DONE consider node: \"" << node->name << "\"" << std::endl;
 	}
 
@@ -750,7 +750,7 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 
 void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes) {
 
-	if (Randomize::DBG) {
+	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Determining the graph order, in ascending order from global source to global sink ..." << std::endl;
 	}
 
@@ -762,14 +762,14 @@ void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node> con
 
 	// dbg log
 	//
-	if (Randomize::DBG) {
+	if (Randomize::DBG_VERBOSE) {
 
 		std::cout << "DBG> Print netlist graph: " << std::endl;
 
 		for (auto const& node_iter : nodes) {
 			auto const& node = node_iter.second;
 
-			if (Randomize::DBG) {
+			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>  \"" << node.name << "\":" << std::endl;
 
 				std::cout << "DBG>   Index: " << node.index << std::endl;
