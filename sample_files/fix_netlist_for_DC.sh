@@ -13,6 +13,8 @@ file=$1
 
 cp $file $file.back
 
-sed 's,\\,_,g' $file | sed 's,\/,_,g' | sed 's,\[,_,g' | sed 's,\],_,g' > $file.fixed
+# replace special characters
+# the 3rd sed command is to restore "//" comments
+sed 's,\\,__,g' $file | sed 's,\/,__,g' | sed 's,____,//,g' | sed 's,\[,__,g' | sed 's,\],__,g' > $file.fixed
 
 mv $file.fixed $file
