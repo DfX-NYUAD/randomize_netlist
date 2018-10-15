@@ -72,9 +72,6 @@ int main (int argc, char** argv) {
 		Randomize::iteration(data, HD);
 
 		iter++;
-
-		// TODO drop after testing
-		break;
 	}
 	while (HD < data.HD_target);
 
@@ -117,8 +114,7 @@ void Randomize::iteration(Data& data, double& HD) {
 	//
 	// TODO
 	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 5));
-	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 2));
-	op = static_cast<Randomize::RandomOperation>(1);
+	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 3));
 	switch (op) {
 
 		case Randomize::RandomOperation::ReplaceCell:
@@ -136,8 +132,7 @@ void Randomize::iteration(Data& data, double& HD) {
 
 		case Randomize::RandomOperation::SwapInputs:
 			std::cout << "Randomize>   2) Swap inputs" << std::endl;
-			// TODO
-			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			Randomize::randomizeHelperSwapInputs(netlist);
 			// connectivity is modified, so check for loops
 			check_for_loops = true;
 			break;
@@ -158,9 +153,6 @@ void Randomize::iteration(Data& data, double& HD) {
 			break;
 	}
 
-	// 3) swap input connectivity:
-	// 	select two inputs (of different gates)
-	// 	swap the input nets
 	// 4) delete gate:
 	// 	replace all output nets with some of the input nets
 	// 5) insert gate:
@@ -173,9 +165,13 @@ void Randomize::iteration(Data& data, double& HD) {
 
 	// if required, check for loops
 	if (check_for_loops) {
+		std::cout << "Randomize>    Operation changed connectivity -- check for combinatorial loops ..." << std::endl;
 		if (Randomize::checkGraphForCycles( &(netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
-			std::cout << "Randomize>   Operation induced some combinatorial loop; rejecting this netlist modification ..." << std::endl;
+			std::cout << "Randomize>     Found some loop; rejecting this netlist modification" << std::endl;
 			return;
+		}
+		else {
+			std::cout << "Randomize>     No loop found" << std::endl;
 		}
 	}
 
@@ -449,6 +445,34 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 	if (!found) {
 		std::cout << "Randomize>    Warning: could not find any suitable pair of gates to swap outputs" << std::endl;
 	}
+}
+
+// 3) swap input connectivity:
+// 	select two inputs (same or different gates)
+// 	swap the input nets
+void Randomize::randomizeHelperSwapInputs(Data::Netlist& netlist) {
+
+	// pick two gates randomly, could be even the same
+	//
+	Data::Gate& gate_a = netlist.gates[
+		Randomize::rand(0, netlist.gates.size())
+			];
+	Data::Gate& gate_b = netlist.gates[
+		Randomize::rand(0, netlist.gates.size())
+			];
+
+	// randomly select one input net for each gate
+	//
+	auto input_a = gate_a.inputs.begin();
+	std::advance(input_a, Randomize::rand(0, gate_a.inputs.size()));
+	auto input_b = gate_b.inputs.begin();
+	std::advance(input_b, Randomize::rand(0, gate_b.inputs.size()));
+
+	std::cout << "Randomize>    Randomly picked gates: \"" << gate_a.name << "\" and \"" << gate_b.name << "\"" << std::endl;
+	std::cout << "Randomize>     Randomly picked input nets/pins: \"" << input_a->second << "\" and \"" << input_b->second << "\"" << std::endl;
+
+	// finally, swap the inputs
+	std::swap(input_a->second, input_b->second);
 }
 
 void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, unsigned const& iterations, double& HD_threads, std::mutex& m) {
