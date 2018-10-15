@@ -72,6 +72,9 @@ int main (int argc, char** argv) {
 		Randomize::iteration(data, HD);
 
 		iter++;
+
+		// TODO drop after testing
+		break;
 	}
 	while (HD < data.HD_target);
 
@@ -95,139 +98,6 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize>" << std::endl;
 };
 
-// 1) swap gate type / underlying cell
-//
-void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist) {
-	bool found, ignore_driving_strength;
-	unsigned trials, trials_stop;
-	Data::Cell const* cell;
-
-	// pick gate randomly
-	//
-	Data::Gate& gate = netlist.gates[
-		Randomize::rand(0, netlist.gates.size())
-			];
-
-	std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
-
-	// search for other cell type;
-	// search until a suitable cell was found, or until sufficient number of trials have been conducted
-	//
-	found = false;
-	ignore_driving_strength = false;
-	trials = 0;
-	trials_stop = data.cells.size() * 3;
-
-	while (!found) {
-
-		// break handler
-		trials++;
-		if (trials == trials_stop) {
-			// so far the driving strength had to match;
-			// but now, since many trials had already been done, drop that constraint, and reset trials counter
-			if (!ignore_driving_strength) {
-				ignore_driving_strength = true;
-				trials = 1;
-			}
-			// driving strength has been already ignored (for 2nd part of trials); still no suitable cell found; abort
-			else {
-				break;
-			}
-		}
-
-		// pick cell randomly
-		auto it = data.cells.begin();
-		std::advance(it, Randomize::rand(0, data.cells.size()));
-		cell = &((it)->second);
-
-		// possibly consider driving strength, see also above
-		//
-		if (ignore_driving_strength || (!ignore_driving_strength && (cell->strength == gate.cell->strength))) {
-
-			// should be a cell with same number of inputs/outputs
-			//
-			if (cell->inputs.size() == gate.cell->inputs.size() && cell->outputs.size() == gate.cell->outputs.size()) {
-
-				// but, of course, shouldn't be a cell with the very same functions
-				//
-				bool same_fct = false;
-				for (auto const& new_fct : cell->functions) {
-					auto const old_fct = gate.cell->functions.find(new_fct.first);
-
-					if (old_fct != gate.cell->functions.end()) {
-						if (new_fct.second == old_fct->second) {
-							same_fct = true;
-							break;
-						}
-					}
-				}
-
-				if (!same_fct) {
-					found = true;
-
-					std::cout << "Randomize>    Current cell type: \"" << gate.cell->type << "\"; new cell type: \"" << cell->type << "\"" << std::endl;
-				}
-			}
-		}
-	}
-	if (!found) {
-		std::cout << "Randomize>    Warning: could not find any other suitable cell to replace this gate's cell (\"" <<
-			gate.cell->type << "\" with" << std::endl;
-	}
-	// cell to replace with found;
-	// randomly re-assign all nets/pins connected to input/output pins of gate to some pins of the new cell
-	else {
-		std::set<std::string> pins_not_connected_yet;
-		// cell pin name, net/pin name
-		std::unordered_map<std::string, std::string> inputs, outputs;
-
-		// for each input of the gate, replace the pin name with one of the new cell
-		//
-		pins_not_connected_yet = cell->inputs;
-		for (auto& input : gate.inputs) {
-
-			// randomly pick one input
-			auto it = pins_not_connected_yet.begin();
-			std::advance(it, Randomize::rand(0, pins_not_connected_yet.size()));
-
-			// create the following pair: new pin name, old net/pin name assignment
-			inputs.insert(std::make_pair(
-						*it,
-						input.second
-					));
-
-			// also remove this pin from the set of yet unconnected ones
-			pins_not_connected_yet.erase(it);
-		}
-
-		// for each output of the gate, replace the pin name with one of the new cell
-		//
-		pins_not_connected_yet = cell->outputs;
-		for (auto& output : gate.outputs) {
-
-			// randomly pick one output
-			auto it = pins_not_connected_yet.begin();
-			std::advance(it, Randomize::rand(0, pins_not_connected_yet.size()));
-
-			// create the following pair: new pin name, old net/pin name assignment
-			outputs.insert(std::make_pair(
-						*it,
-						output.second
-					));
-
-			// also remove this pin from the set of yet unconnected ones
-			pins_not_connected_yet.erase(it);
-		}
-
-		// replace the pin mappings in the gate
-		gate.inputs = std::move(inputs);
-		gate.outputs = std::move(outputs);
-
-		// finally, also replace cell in gate
-		gate.cell = cell;
-	}
-}
-
 void Randomize::iteration(Data& data, double& HD) {
 	bool check_for_loops;
 	Randomize::RandomOperation op;
@@ -245,25 +115,27 @@ void Randomize::iteration(Data& data, double& HD) {
 	// pick operation randomly
 	// see also Randomize::RandomOperation for definition of opcodes
 	//
+	// TODO
 	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 5));
+	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 2));
+	op = static_cast<Randomize::RandomOperation>(1);
 	switch (op) {
 
 		case Randomize::RandomOperation::ReplaceCell:
-			std::cout << "Randomize>   1) Replace underlying cell" << std::endl;
+			std::cout << "Randomize>   0) Replace underlying cell" << std::endl;
 			Randomize::randomizeHelperReplaceCell(data, netlist);
 			check_for_loops = false;
 			break;
 
 		case Randomize::RandomOperation::SwapOutputs:
-			std::cout << "Randomize>   2) Swap outputs" << std::endl;
-			// TODO
-			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			std::cout << "Randomize>   1) Swap outputs" << std::endl;
+			Randomize::randomizeHelperSwapOutputs(netlist);
 			// connectivity is modified, so check for loops
 			check_for_loops = true;
 			break;
 
 		case Randomize::RandomOperation::SwapInputs:
-			std::cout << "Randomize>   3) Swap inputs" << std::endl;
+			std::cout << "Randomize>   2) Swap inputs" << std::endl;
 			// TODO
 			//Randomize::randomizeHelperReplaceCell(data, netlist);
 			// connectivity is modified, so check for loops
@@ -271,14 +143,14 @@ void Randomize::iteration(Data& data, double& HD) {
 			break;
 
 		case Randomize::RandomOperation::DeleteGate:
-			std::cout << "Randomize>   4) Delete gate" << std::endl;
+			std::cout << "Randomize>   3) Delete gate" << std::endl;
 			// TODO
 			//Randomize::randomizeHelperReplaceCell(data, netlist);
 			check_for_loops = false;
 			break;
 
 		case Randomize::RandomOperation::InsertGate:
-			std::cout << "Randomize>   5) Insert gate" << std::endl;
+			std::cout << "Randomize>   4) Insert gate" << std::endl;
 			// TODO
 			//Randomize::randomizeHelperReplaceCell(data, netlist);
 			// connectivity is modified, by picking some input nets among the netlist, so check for loops
@@ -286,9 +158,6 @@ void Randomize::iteration(Data& data, double& HD) {
 			break;
 	}
 
-	// 2) swap output connectivity:
-	// 	select two outputs (of different gates) with same number of fan-out
-	// 	swap the output nets
 	// 3) swap input connectivity:
 	// 	select two inputs (of different gates)
 	// 	swap the input nets
@@ -369,6 +238,215 @@ void Randomize::iteration(Data& data, double& HD) {
 	}
 	else {
 		std::cout << "Randomize>   New HD (" << HD_threads << ") does not improve global HD (" << HD << "); drop netlist modification" << std::endl;
+	}
+}
+
+// 1) swap gate type / underlying cell
+//
+void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist) {
+	bool found, ignore_driving_strength;
+	unsigned trials, trials_stop;
+	Data::Cell const* cell;
+
+	// pick gate randomly
+	//
+	Data::Gate& gate = netlist.gates[
+		Randomize::rand(0, netlist.gates.size())
+			];
+
+	std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
+
+	// search for other cell type;
+	// search until a suitable cell was found, or until sufficient number of trials have been conducted
+	//
+	found = false;
+	ignore_driving_strength = false;
+	trials = 0;
+	trials_stop = data.cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
+
+	while (!found) {
+
+		// break handler
+		if (trials == trials_stop) {
+			// so far the driving strength had to match;
+			// but now, since many trials had already been done, drop that constraint, and reset trials counter
+			if (!ignore_driving_strength) {
+				ignore_driving_strength = true;
+				trials = 0;
+			}
+			// driving strength has been already ignored (for 2nd part of trials); still no suitable cell found; abort
+			else {
+				break;
+			}
+		}
+
+		// pick cell randomly
+		auto it = data.cells.begin();
+		std::advance(it, Randomize::rand(0, data.cells.size()));
+		cell = &((it)->second);
+
+		// possibly consider driving strength, see also above
+		//
+		if (ignore_driving_strength || (!ignore_driving_strength && (cell->strength == gate.cell->strength))) {
+
+			// should be a cell with same number of inputs/outputs
+			//
+			if (cell->inputs.size() == gate.cell->inputs.size() && cell->outputs.size() == gate.cell->outputs.size()) {
+
+				// but, of course, shouldn't be a cell with the very same functions
+				//
+				bool same_fct = false;
+				for (auto const& new_fct : cell->functions) {
+					auto const old_fct = gate.cell->functions.find(new_fct.first);
+
+					// in the old cell, there's an output pin with the same name as for the new cell
+					if (old_fct != gate.cell->functions.end()) {
+						// the related function should be different; if not, break
+						if (new_fct.second == old_fct->second) {
+							same_fct = true;
+							break;
+						}
+					}
+				}
+
+				if (!same_fct) {
+					found = true;
+
+					std::cout << "Randomize>    Current cell type: \"" << gate.cell->type << "\"; new cell type: \"" << cell->type << "\"" << std::endl;
+				}
+			}
+		}
+		trials++;
+	}
+
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any other suitable cell to replace this gate's cell (\"" <<
+			gate.cell->type << "\" with" << std::endl;
+	}
+	// cell to replace with found;
+	// randomly re-assign all nets/pins connected to input/output pins of gate to some pins of the new cell
+	else {
+		std::set<std::string> pins_not_connected_yet;
+		// cell pin name, net/pin name
+		std::unordered_map<std::string, std::string> inputs, outputs;
+
+		// for each input of the gate, replace the pin name with one of the new cell
+		//
+		pins_not_connected_yet = cell->inputs;
+		for (auto& input : gate.inputs) {
+
+			// randomly pick one input
+			auto it = pins_not_connected_yet.begin();
+			std::advance(it, Randomize::rand(0, pins_not_connected_yet.size()));
+
+			// create the following pair: new pin name, old net/pin name assignment
+			inputs.insert(std::make_pair(
+						*it,
+						input.second
+					));
+
+			// also remove this pin from the set of yet unconnected ones
+			pins_not_connected_yet.erase(it);
+		}
+
+		// for each output of the gate, replace the pin name with one of the new cell
+		//
+		pins_not_connected_yet = cell->outputs;
+		for (auto& output : gate.outputs) {
+
+			// randomly pick one output
+			auto it = pins_not_connected_yet.begin();
+			std::advance(it, Randomize::rand(0, pins_not_connected_yet.size()));
+
+			// create the following pair: new pin name, old net/pin name assignment
+			outputs.insert(std::make_pair(
+						*it,
+						output.second
+					));
+
+			// also remove this pin from the set of yet unconnected ones
+			pins_not_connected_yet.erase(it);
+		}
+
+		// replace the pin mappings in the gate
+		gate.inputs = std::move(inputs);
+		gate.outputs = std::move(outputs);
+
+		// finally, also replace cell in gate
+		gate.cell = cell;
+	}
+}
+
+// 2) swap output connectivity:
+// 	select two outputs (of different gates), possibly with same fan-out degree
+// 	swap the output nets
+void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
+	bool found, ignore_fanout;
+	unsigned trials, trials_stop;
+
+	found = false;
+	ignore_fanout = false;
+	trials = 0;
+	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
+
+	while (!found) {
+
+		// break handler
+		if (trials == trials_stop) {
+			// so far the fan out had to match;
+			// but now, since many trials had already been done, drop that constraint, and reset trials counter
+			if (!ignore_fanout) {
+				ignore_fanout = true;
+				trials = 0;
+			}
+			// fan out has been already ignored (for 2nd part of trials); still no suitable pair of gates found; abort
+			else {
+				break;
+			}
+		}
+
+		// pick two gates randomly
+		//
+		Data::Gate& gate_a = netlist.gates[
+			Randomize::rand(0, netlist.gates.size())
+				];
+		Data::Gate& gate_b = netlist.gates[
+			Randomize::rand(0, netlist.gates.size())
+				];
+
+		// first, gates shouldn't be the same
+		if (gate_a.name != gate_b.name) {
+
+			// randomly select one output net for each gate
+			//
+			auto output_a = gate_a.outputs.begin();
+			std::advance(output_a, Randomize::rand(0, gate_a.outputs.size()));
+			auto output_b = gate_b.outputs.begin();
+			std::advance(output_b, Randomize::rand(0, gate_b.outputs.size()));
+
+			// possibly consider fanout, see also above
+			//
+			// check for the same number of children/fan-out on the current graph (not yet updated, but that is OK since this
+			// very gate modification is also not done yet)
+			// 
+			bool same_fanout = (netlist.nodes[output_a->second].children.size() == netlist.nodes[output_b->second].children.size());
+			if (ignore_fanout || (!ignore_fanout && same_fanout)) {
+
+				found = true;
+
+				std::cout << "Randomize>    Randomly picked gates: \"" << gate_a.name << "\" and \"" << gate_b.name << "\"" << std::endl;
+				std::cout << "Randomize>     Randomly picked output nets/pins: \"" << output_a->second << "\" and \"" << output_b->second << "\"" << std::endl;
+				std::cout << "Randomize>     Fan-outs of those nets/pins: " << netlist.nodes[output_a->second].children.size() << " and " << netlist.nodes[output_b->second].children.size() << std::endl;
+
+				// finally, swap the outputs
+				std::swap(output_a->second, output_b->second);
+			}
+		}
+		trials++;
+	}
+
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any suitable pair of gates to swap outputs" << std::endl;
 	}
 }
 
