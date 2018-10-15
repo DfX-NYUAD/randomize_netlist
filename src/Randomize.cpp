@@ -385,9 +385,10 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 	unsigned trials, trials_stop;
 
 	found = false;
-	ignore_fanout = false;
 	trials = 0;
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
+	// fan-out can be ignored
+	ignore_fanout = true;
 
 	while (!found) {
 
