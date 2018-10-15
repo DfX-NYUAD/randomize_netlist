@@ -114,6 +114,15 @@ class Data {
 			// mapping: name, node
 			std::unordered_map<std::string, Data::Node> nodes;
 		} netlist, netlist_original;
+
+		// PODs for tracking modifications statistic
+		struct NetlistModifications {
+			unsigned replacedCells = 0;
+			unsigned swappedInputs = 0;
+			unsigned swappedOutputs = 0;
+			unsigned deletedGates = 0;
+			unsigned insertedGates = 0;
+		} netlist_modifications;
 };
 
 #endif

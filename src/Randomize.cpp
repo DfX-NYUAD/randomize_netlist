@@ -78,6 +78,14 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize>" << std::endl;
 	std::cout << "Randomize> Done; target HD (" << data.HD_target << ") has been reached" << std::endl;
 
+	// log modification statistics
+	std::cout << "Randomize>" << std::endl;
+	std::cout << "Randomize> Replaced cell type for that many gates: " << data.netlist_modifications.replacedCells << std::endl;
+	std::cout << "Randomize> Swapped outputs for that many pairs of gates: " << data.netlist_modifications.swappedOutputs << std::endl;
+	std::cout << "Randomize> Swapped inputs for that many pairs of gates: " << data.netlist_modifications.swappedInputs << std::endl;
+	std::cout << "Randomize> Deleted that many gates: " << data.netlist_modifications.deletedGates << std::endl;
+	std::cout << "Randomize> Inserted that many gates: " << data.netlist_modifications.insertedGates << std::endl;
+
 	// output randomized netlist
 	IO::writeNetlist(data);
 
@@ -87,43 +95,12 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize>" << std::endl;
 };
 
-bool Randomize::randomizeHelper(Data const& data, Data::Netlist& netlist) {
-
-	std::cout << "Randomize>  Performing random operation on current netlist ..." << std::endl;
-
-	// TODO pick operation randomly, log which one
-//	switch (Randomize::rand(0, 6)) {
-//	}
-	// TODO if a new gate has been inserted, return true; check for loops
-	// TODO if connectivity has been swapped, return true; check for loops
-	
-	Randomize::randomizeHelperSwapCell(data, netlist);
-
-	// 2) swap output connectivity:
-	// 	select two outputs (of different gates) with same number of fan-out
-	// 	swap the output nets
-	// 3) swap input connectivity:
-	// 	select two inputs (of different gates)
-	// 	swap the input nets
-	// 4) delete gate:
-	// 	replace all output nets with some of the input nets
-	// 5) insert gate:
-	// 	pick some net randomly
-	// 	insert gate within net, i.e., decompose net into input and output part
-	// 	pick remaining input nets for gate randomly from netlist
-
-	return true;
-}
-
-
 // 1) swap gate type / underlying cell
 //
-void Randomize::randomizeHelperSwapCell(Data const& data, Data::Netlist& netlist) {
+void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist) {
 	bool found, ignore_driving_strength;
 	unsigned trials, trials_stop;
 	Data::Cell const* cell;
-
-	std::cout << "Randomize>   1) Swap underlying cell" << std::endl;
 
 	// pick gate randomly
 	//
@@ -253,6 +230,7 @@ void Randomize::randomizeHelperSwapCell(Data const& data, Data::Netlist& netlist
 
 void Randomize::iteration(Data& data, double& HD) {
 	bool check_for_loops;
+	Randomize::RandomOperation op;
 	// threads
 	std::vector<std::thread> threads;
 	std::mutex m;
@@ -261,7 +239,65 @@ void Randomize::iteration(Data& data, double& HD) {
 	Data::Netlist netlist = data.netlist;
 
 	// random operation on local netlist
-	check_for_loops = Randomize::randomizeHelper(data, netlist);	
+	//
+	std::cout << "Randomize>  Performing random operation on current netlist ..." << std::endl;
+
+	// pick operation randomly
+	// see also Randomize::RandomOperation for definition of opcodes
+	//
+	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 5));
+	switch (op) {
+
+		case Randomize::RandomOperation::ReplaceCell:
+			std::cout << "Randomize>   1) Replace underlying cell" << std::endl;
+			Randomize::randomizeHelperReplaceCell(data, netlist);
+			check_for_loops = false;
+			break;
+
+		case Randomize::RandomOperation::SwapOutputs:
+			std::cout << "Randomize>   2) Swap outputs" << std::endl;
+			// TODO
+			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			// connectivity is modified, so check for loops
+			check_for_loops = true;
+			break;
+
+		case Randomize::RandomOperation::SwapInputs:
+			std::cout << "Randomize>   3) Swap inputs" << std::endl;
+			// TODO
+			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			// connectivity is modified, so check for loops
+			check_for_loops = true;
+			break;
+
+		case Randomize::RandomOperation::DeleteGate:
+			std::cout << "Randomize>   4) Delete gate" << std::endl;
+			// TODO
+			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			check_for_loops = false;
+			break;
+
+		case Randomize::RandomOperation::InsertGate:
+			std::cout << "Randomize>   5) Insert gate" << std::endl;
+			// TODO
+			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			// connectivity is modified, by picking some input nets among the netlist, so check for loops
+			check_for_loops = true;
+			break;
+	}
+
+	// 2) swap output connectivity:
+	// 	select two outputs (of different gates) with same number of fan-out
+	// 	swap the output nets
+	// 3) swap input connectivity:
+	// 	select two inputs (of different gates)
+	// 	swap the input nets
+	// 4) delete gate:
+	// 	replace all output nets with some of the input nets
+	// 5) insert gate:
+	// 	pick some net randomly
+	// 	insert gate within net, i.e., decompose net into input and output part
+	// 	pick remaining input nets for gate randomly from netlist
 
 	// init the local graph 
 	Randomize::initGraph(netlist);
@@ -299,11 +335,37 @@ void Randomize::iteration(Data& data, double& HD) {
 	HD_threads /= data.threads;
 
 	// if HD improved, make local netlist the new global netlist
+	//
 	if (HD_threads > HD) {
 		std::cout << "Randomize>   New HD (" << HD_threads << ") improves global HD (" << HD << "); memorizing netlist modification" << std::endl;
 
-		HD = HD_threads;
 		data.netlist = std::move(netlist);
+		// also track new HD
+		HD = HD_threads;
+
+		// also track modification on netlist
+		switch (op) {
+
+			case Randomize::RandomOperation::ReplaceCell:
+				data.netlist_modifications.replacedCells++;
+				break;
+
+			case Randomize::RandomOperation::SwapOutputs:
+				data.netlist_modifications.swappedOutputs++;
+				break;
+
+			case Randomize::RandomOperation::SwapInputs:
+				data.netlist_modifications.swappedInputs++;
+				break;
+
+			case Randomize::RandomOperation::DeleteGate:
+				data.netlist_modifications.deletedGates++;
+				break;
+
+			case Randomize::RandomOperation::InsertGate:
+				data.netlist_modifications.insertedGates++;
+				break;
+		}
 	}
 	else {
 		std::cout << "Randomize>   New HD (" << HD_threads << ") does not improve global HD (" << HD << "); drop netlist modification" << std::endl;
