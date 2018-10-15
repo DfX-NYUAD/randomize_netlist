@@ -20,6 +20,8 @@ class Randomize {
 				double& HD_threads,
 				std::mutex& m
 			);
+		static bool randomizeHelper(Data const& data, Data::Netlist& netlist);
+		static void randomizeHelperSwapCell(Data const& data, Data::Netlist& netlist);
 		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes);
 		static void determGraphOrderRec(Data::Node const* node);
 		static bool evaluateString(std::string function);

@@ -40,8 +40,10 @@ class Data {
 		// PODs for cells
 		struct Cell {
 			std::string type;
-			std::vector<std::string> inputs;
-			std::vector<std::string> outputs;
+			std::string type_wo_strength;
+			std::string strength;
+			std::set<std::string> inputs;
+			std::set<std::string> outputs;
 			// output pin name, Boolean function of input pin names
 			std::unordered_map<std::string, std::string> functions;
 		};

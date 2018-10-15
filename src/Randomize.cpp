@@ -67,14 +67,16 @@ int main (int argc, char** argv) {
 	do {
 
 		std::cout << "Randomize> Iteration: " << iter << std::endl;
+		std::cout << "Randomize>  Current HD: " << HD << std::endl;
 
 		Randomize::iteration(data, HD);
-
-		std::cout << "Randomize>  Current HD: " << HD << std::endl;
 
 		iter++;
 	}
 	while (HD < data.HD_target);
+
+	std::cout << "Randomize>" << std::endl;
+	std::cout << "Randomize> Done; target HD (" << data.HD_target << ") has been reached" << std::endl;
 
 	// output randomized netlist
 	IO::writeNetlist(data);
@@ -85,7 +87,173 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize>" << std::endl;
 };
 
+bool Randomize::randomizeHelper(Data const& data, Data::Netlist& netlist) {
+
+	std::cout << "Randomize>  Performing random operation on current netlist ..." << std::endl;
+
+	// TODO pick operation randomly, log which one
+//	switch (Randomize::rand(0, 6)) {
+//	}
+	// TODO if a new gate has been inserted, return true; check for loops
+	// TODO if connectivity has been swapped, return true; check for loops
+	
+	Randomize::randomizeHelperSwapCell(data, netlist);
+
+	// 2) swap output connectivity:
+	// 	select two outputs (of different gates) with same number of fan-out
+	// 	swap the output nets
+	// 3) swap input connectivity:
+	// 	select two inputs (of different gates)
+	// 	swap the input nets
+	// 4) delete gate:
+	// 	replace all output nets with some of the input nets
+	// 5) insert gate:
+	// 	pick some net randomly
+	// 	insert gate within net, i.e., decompose net into input and output part
+	// 	pick remaining input nets for gate randomly from netlist
+
+	return true;
+}
+
+
+// 1) swap gate type / underlying cell
+//
+void Randomize::randomizeHelperSwapCell(Data const& data, Data::Netlist& netlist) {
+	bool found, ignore_driving_strength;
+	unsigned trials, trials_stop;
+	Data::Cell const* cell;
+
+	std::cout << "Randomize>   1) Swap underlying cell" << std::endl;
+
+	// pick gate randomly
+	//
+	Data::Gate& gate = netlist.gates[
+		Randomize::rand(0, netlist.gates.size())
+			];
+
+	std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
+
+	// search for other cell type;
+	// search until a suitable cell was found, or until sufficient number of trials have been conducted
+	//
+	found = false;
+	ignore_driving_strength = false;
+	trials = 0;
+	trials_stop = data.cells.size() * 3;
+
+	while (!found) {
+
+		// break handler
+		trials++;
+		if (trials == trials_stop) {
+			// so far the driving strength had to match;
+			// but now, since many trials had already been done, drop that constraint, and reset trials counter
+			if (!ignore_driving_strength) {
+				ignore_driving_strength = true;
+				trials = 1;
+			}
+			// driving strength has been already ignored (for 2nd part of trials); still no suitable cell found; abort
+			else {
+				break;
+			}
+		}
+
+		// pick cell randomly
+		auto it = data.cells.begin();
+		std::advance(it, Randomize::rand(0, data.cells.size()));
+		cell = &((it)->second);
+
+		// possibly consider driving strength, see also above
+		//
+		if (ignore_driving_strength || (!ignore_driving_strength && (cell->strength == gate.cell->strength))) {
+
+			// should be a cell with same number of inputs/outputs
+			//
+			if (cell->inputs.size() == gate.cell->inputs.size() && cell->outputs.size() == gate.cell->outputs.size()) {
+
+				// but, of course, shouldn't be a cell with the very same functions
+				//
+				bool same_fct = false;
+				for (auto const& new_fct : cell->functions) {
+					auto const old_fct = gate.cell->functions.find(new_fct.first);
+
+					if (old_fct != gate.cell->functions.end()) {
+						if (new_fct.second == old_fct->second) {
+							same_fct = true;
+							break;
+						}
+					}
+				}
+
+				if (!same_fct) {
+					found = true;
+
+					std::cout << "Randomize>    Current cell type: \"" << gate.cell->type << "\"; new cell type: \"" << cell->type << "\"" << std::endl;
+				}
+			}
+		}
+	}
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any other suitable cell to replace this gate's cell (\"" <<
+			gate.cell->type << "\" with";
+		std::cout << " -- this should not happen, check your cell files!" << std::endl;
+	}
+	// cell to replace with found;
+	// randomly re-assign all nets/pins connected to input/output pins of gate to some pins of the new cell
+	else {
+		std::set<std::string> pins_not_connected_yet;
+		// cell pin name, net/pin name
+		std::unordered_map<std::string, std::string> inputs, outputs;
+
+		// for each input of the gate, replace the pin name with one of the new cell
+		//
+		pins_not_connected_yet = cell->inputs;
+		for (auto& input : gate.inputs) {
+
+			// randomly pick one input
+			auto it = pins_not_connected_yet.begin();
+			std::advance(it, Randomize::rand(0, pins_not_connected_yet.size()));
+
+			// create the following pair: new pin name, old net/pin name assignment
+			inputs.insert(std::make_pair(
+						*it,
+						input.second
+					));
+
+			// also remove this pin from the set of yet unconnected ones
+			pins_not_connected_yet.erase(it);
+		}
+
+		// for each output of the gate, replace the pin name with one of the new cell
+		//
+		pins_not_connected_yet = cell->outputs;
+		for (auto& output : gate.outputs) {
+
+			// randomly pick one output
+			auto it = pins_not_connected_yet.begin();
+			std::advance(it, Randomize::rand(0, pins_not_connected_yet.size()));
+
+			// create the following pair: new pin name, old net/pin name assignment
+			outputs.insert(std::make_pair(
+						*it,
+						output.second
+					));
+
+			// also remove this pin from the set of yet unconnected ones
+			pins_not_connected_yet.erase(it);
+		}
+
+		// replace the pin mappings in the gate
+		gate.inputs = std::move(inputs);
+		gate.outputs = std::move(outputs);
+
+		// finally, also replace cell in gate
+		gate.cell = cell;
+	}
+}
+
 void Randomize::iteration(Data& data, double& HD) {
+	bool check_for_loops;
 	// threads
 	std::vector<std::thread> threads;
 	std::mutex m;
@@ -93,33 +261,25 @@ void Randomize::iteration(Data& data, double& HD) {
 	// init a local netlist from the current global one (not the original one)
 	Data::Netlist netlist = data.netlist;
 
-	// TODO random operation on local netlist
-	// 1) swap gate type:
-	// 	keep driving strength, but alter function
-	// 	new function should provide same number of outputs/output functions
-	// 	ensure that new output pin names are reconnected to old output nets
-	// 2) swap output connectivity:
-	// 	select two outputs (of different gates) with same number of fan-out
-	// 	swap the output nets
-	// 4) swap input connectivity:
-	// 	select two inputs (of different gates)
-	// 	swap the input nets
-	// 3) delete gate:
-	// 	replace all output nets with some of the input nets
-	// 4) insert gate:
-	// 	pick some net randomly
-	// 	insert gate within net, i.e., decompose net into input and output part
-	// 	pick remaining input nets for gate randomly from netlist
-	//
+	// random operation on local netlist
+	check_for_loops = Randomize::randomizeHelper(data, netlist);	
+
 	// init the local graph 
 	Randomize::initGraph(netlist);
 
-	// TODO if a new gate has been inserted, check for loops
-	// TODO if connectivity has been swapped, check for loops
+	// if required, check for loops
+	if (check_for_loops) {
+		if (Randomize::checkGraphForCycles( &(netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
+			std::cout << "Randomize>   Operation induced some combinatorial loop; rejecting this netlist modification ..." << std::endl;
+			return;
+		}
+	}
 
 	// determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
 	Randomize::determGraphOrder(netlist.nodes);
+
+	std::cout << "Randomize>  Evaluating HD of modified netlist ..." << std::endl;
 
 	// evaluate HD in parallel
 	threads.reserve(data.threads);
@@ -141,8 +301,13 @@ void Randomize::iteration(Data& data, double& HD) {
 
 	// if HD improved, make local netlist the new global netlist
 	if (HD_threads > HD) {
+		std::cout << "Randomize>   New HD (" << HD_threads << ") improves global HD (" << HD << "); memorizing netlist modification" << std::endl;
+
 		HD = HD_threads;
 		data.netlist = std::move(netlist);
+	}
+	else {
+		std::cout << "Randomize>   New HD (" << HD_threads << ") does not improve global HD (" << HD << "); drop netlist modification" << std::endl;
 	}
 }
 
@@ -225,9 +390,15 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 	//
 	// normalize HD
 	HD_local /= HD_curr_iter;
+
 	// sum up HD across all threads, using the mutex
 	m.lock();
+
 	HD_threads += HD_local;
+
+	//// also log the current, local HD
+	//std::cout << "Randomize>  HD for current thread: " << HD_local << std::endl;
+
 	m.unlock();
 
 	if (Randomize::DBG) {
