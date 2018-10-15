@@ -195,8 +195,7 @@ void Randomize::randomizeHelperSwapCell(Data const& data, Data::Netlist& netlist
 	}
 	if (!found) {
 		std::cout << "Randomize>    Warning: could not find any other suitable cell to replace this gate's cell (\"" <<
-			gate.cell->type << "\" with";
-		std::cout << " -- this should not happen, check your cell files!" << std::endl;
+			gate.cell->type << "\" with" << std::endl;
 	}
 	// cell to replace with found;
 	// randomly re-assign all nets/pins connected to input/output pins of gate to some pins of the new cell
