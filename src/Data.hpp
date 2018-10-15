@@ -24,7 +24,7 @@ class Data {
 		// threads
 		unsigned threads = 1;
 		// HD sampling iterations
-		unsigned HD_sampling_iterations = 1e4;
+		unsigned HD_sampling_iterations = 1e3;
 		// desired HD value
 		double HD_target = 0.5;
 
