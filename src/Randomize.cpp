@@ -389,7 +389,7 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 	// after running all iterations
 	//
 	// normalize HD
-	HD_local /= HD_curr_iter;
+	HD_local /= iterations;
 
 	// sum up HD across all threads, using the mutex
 	m.lock();
