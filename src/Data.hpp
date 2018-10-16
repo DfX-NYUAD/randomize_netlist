@@ -103,10 +103,10 @@ class Data {
 			// module name
 			std::string module_name;
 			// I/Os ports
-			std::set<std::string> inputs;
-			std::set<std::string> outputs;
+			std::vector<std::string> inputs;
+			std::vector<std::string> outputs;
 			// wires
-			std::set<std::string> wires;
+			std::vector<std::string> wires;
 			// gates
 			std::vector<Gate> gates;
 

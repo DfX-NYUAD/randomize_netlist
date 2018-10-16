@@ -365,7 +365,7 @@ void IO::parseNetlist(Data& data) {
 			linestream >> tmpstr;
 			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
 
-			data.netlist.inputs.insert(tmpstr);
+			data.netlist.inputs.emplace_back(tmpstr);
 		}
 	}
 	
@@ -405,7 +405,7 @@ void IO::parseNetlist(Data& data) {
 			linestream >> tmpstr;
 			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
 
-			data.netlist.outputs.insert(tmpstr);
+			data.netlist.outputs.emplace_back(tmpstr);
 		}
 	}
 	
@@ -445,7 +445,7 @@ void IO::parseNetlist(Data& data) {
 			linestream >> tmpstr;
 			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
 
-			data.netlist.wires.insert(tmpstr);
+			data.netlist.wires.emplace_back(tmpstr);
 		}
 	}
 
@@ -643,16 +643,14 @@ void IO::writeNetlist(Data& data) {
 	}
 
 	// output all outputs for module ports
-	unsigned count = 1;
-	for (auto const& output : data.netlist.outputs) {
+	for (unsigned i = 1; i <= data.netlist.outputs.size(); i++) {
 
 		// the last output has no comma following, and it also closes the port list
-		if (count == data.netlist.outputs.size()) {
-			out << output << ");" << std::endl;
+		if (i == data.netlist.outputs.size()) {
+			out << data.netlist.outputs[i - 1] << ");" << std::endl;
 		}
 		else {
-			out << output << "," << std::endl;
-			count++;
+			out << data.netlist.outputs[i - 1] << "," << std::endl;
 		}
 	}
 	out << std::endl;
