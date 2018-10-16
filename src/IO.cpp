@@ -10,13 +10,13 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [sampling_iterations]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
-		std::cout << "IO> Mandatory parameter ``cells.inputs'': All cells and all their inputs" << std::endl;
-		std::cout << "IO> Mandatory parameter ``cells.outputs'': All cells and all their outputs" << std::endl;
-		std::cout << "IO> Mandatory parameter ``cells.functions'': All cells and all their output functions" << std::endl;
-		std::cout << "IO> Mandatory parameter ``out.v'': Randomized netlist" << std::endl;
+		std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
+		std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
+		std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
+		std::cout << "IO> Mandatory parameter ``out.v'': Output; randomized netlist" << std::endl;
 		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.threads << std::endl;
-		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD: " << data.HD_target << std::endl;
-		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation: " << data.HD_sampling_iterations << std::endl;
+		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.HD_target << std::endl;
+		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation; default value: " << data.HD_sampling_iterations << std::endl;
 		std::cout << "IO> " << std::endl;
 		exit(1);
 	}
