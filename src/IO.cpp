@@ -624,17 +624,41 @@ void IO::parseNetlist(Data& data) {
 	}
 };
 
-void IO::writeNetlist(Data& data) {
+void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) {
 	std::ofstream out;
+
+	// set locale for output; for using thousand separators
+	out.imbue(std::locale(""));
 
 	std::cout << "Randomize>" << std::endl;
 	std::cout << "Randomize> Writing out netlist ..." << std::endl;
 
 	out.open(data.files.out_netlist.c_str());
 
-	out << "// Randomized netlist -- HD around TODO" << std::endl;
+	out << "// Randomized netlist" << std::endl;
+	out << "//" << std::endl;
+	out << "// Parameter ``netlist.v'': " << data.files.in_netlist << std::endl;
+	out << "// Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
+	out << "// Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
+	out << "// Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	out << "// Parameter ``out.v'': " << data.files.out_netlist << std::endl;
+	out << "// Parameter ``threads'': " << data.threads << std::endl;
+	out << "// Parameter ``HD_target'': " << data.HD_target << std::endl;
+	out << "// Parameter ``sampling_iterations'': " << data.HD_sampling_iterations << std::endl;
+	out << "//" << std::endl;
+	out << "//" << std::endl;
+	out << "// Achieved the following HD for this randomized netlist: " << HD << std::endl;
+	out << "//" << std::endl;
+	out << "// Randomization iterations: " << iterations << std::endl;
+	out << "//" << std::endl;
+	out << "// Replaced cell type for that many gates: " << data.netlist_modifications.replacedCells << std::endl;
+	out << "// Swapped outputs for that many pairs of gates: " << data.netlist_modifications.swappedOutputs << std::endl;
+	out << "// Swapped inputs for that many pairs of gates: " << data.netlist_modifications.swappedInputs << std::endl;
+	out << "// Deleted that many gates: " << data.netlist_modifications.deletedGates << std::endl;
+	out << "// Inserted that many gates: " << data.netlist_modifications.insertedGates << std::endl;
 	out << "//" << std::endl;
 	out << std::endl;
+
 	out << "module " << data.netlist.module_name << " (" << std::endl;
 
 	// output all inputs for module ports

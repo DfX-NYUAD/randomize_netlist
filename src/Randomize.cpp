@@ -73,6 +73,7 @@ int main (int argc, char** argv) {
 
 		iter++;
 	}
+	// TODO alternatively, catch Ctrl C
 	while (HD < data.HD_target);
 
 	std::cout << "Randomize>" << std::endl;
@@ -87,7 +88,7 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize> Inserted that many gates: " << data.netlist_modifications.insertedGates << std::endl;
 
 	// output randomized netlist
-	IO::writeNetlist(data);
+	IO::writeNetlist(data, HD, iter - 1);
 
 	// also log runtime
 	std::chrono::duration<double> runtime = std::chrono::system_clock::now() - start_time;
@@ -256,6 +257,7 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 	// search until a suitable cell was found, or until sufficient number of trials have been conducted
 	//
 	found = false;
+	// TODO define as optional call parameter
 	ignore_driving_strength = false;
 	trials = 0;
 	trials_stop = data.cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
@@ -384,6 +386,7 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 	trials = 0;
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
 	// fan-out can be ignored
+	// TODO define as optional call parameter
 	ignore_fanout = true;
 
 	while (!found) {
