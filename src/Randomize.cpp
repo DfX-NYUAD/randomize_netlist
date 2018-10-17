@@ -490,6 +490,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found && (trials < trials_stop)) {
+		trials++;
 
 		// pick a gate randomly
 		//
@@ -532,7 +533,13 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		found = true;
 
 		std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
+	}
 
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
+		return;
+	}
+	else {
 		// replace the input net of any subsequent gate (which was originally driven by the gate to be deleted) with a randomly
 		// selected input of that gate -- thereby the driver of the gate to be deleted becomes the driver of the subsequent gate
 		//
@@ -609,10 +616,6 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 				break;
 			}
 		}
-	}
-	if (!found) {
-		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
-		return;
 	}
 }
 
