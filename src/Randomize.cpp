@@ -671,34 +671,42 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 
 		std::cout << "Randomize>     Random " << Randomize::RAND_NAME_SIZE << "-character name for new gate: \"" << new_gate.name  << "\"" << std::endl;
 
-		// now, for each of the cell's outputs, randomly pick a net where the gate should be inserted into
+		// for each of the cell's outputs, randomly pick a net where the gate should be inserted into
 		//
+		std::set<std::string> inputs = cell->inputs;
 		for (auto const& output : cell->outputs) {
 
 			random_net = netlist.wires[
 				Randomize::rand(0, netlist.wires.size())
 					];
 
-			std::cout << "Randomize>     Insert gate (output pin \"" << output << "\") into the following net: \"" << random_net << "\"" << std::endl;
+			std::cout << "Randomize>     Re-wire the following net: \"" << random_net << "\"" << std::endl;
 
 			// inserting the new gate into that net requires the following two steps
 			//
 
 			// 1) assign that net as an input for the new gate
 			//
-			// also pick the input pin randomly
-			auto iter = cell->inputs.begin();
-			std::advance(iter, Randomize::rand(0, cell->inputs.size()));
+			// also pick randomly among the input pins not yet assigned
+			auto iter = inputs.begin();
+			std::advance(iter, Randomize::rand(0, inputs.size()));
 			
 			new_gate.inputs.insert(std::make_pair(
 						*iter,
 						random_net
 					));
 
+			std::cout << "Randomize>      Connect this net with the following input pin: \"" << *iter << "\"" << std::endl;
+
+			// the input is assigned, remove the pin from the set of inputs yet to be assigned
+			inputs.erase(iter);
+
 			// 2) replace all the matching sink inputs for that net with an new net defined for the new gate's output
 			//
 			// derive the new net name
 			new_net = new_gate.name + "_" + output;
+
+			std::cout << "Randomize>      Re-connect all sinks previously connected with this net using the following new net: \"" << new_net << "\"" << std::endl;
 
 			// as with Randomize::randomizeHelperDeleteGate, work directly on gates, not on graph
 			//
@@ -725,6 +733,22 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 			// 4) insert the new net as wire into the netlist
 			//
 			netlist.wires.emplace_back(std::move(new_net));
+		}
+
+		// now, for the remaining inputs pins, also pick randomly some nets to connect with
+		//
+		for (auto const& input : inputs) {
+
+			random_net = netlist.wires[
+				Randomize::rand(0, netlist.wires.size())
+					];
+
+			new_gate.inputs.insert(std::make_pair(
+						input,
+						random_net
+					));
+
+			std::cout << "Randomize>     Connect the remaining input pin \"" << input << "\" with the following net: \"" << random_net << "\"" << std::endl;
 		}
 
 		// finally, memorize the gate in the netlist
