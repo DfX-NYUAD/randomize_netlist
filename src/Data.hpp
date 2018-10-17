@@ -63,7 +63,7 @@ class Data {
 
 		// PODs for graph data
 		struct Node {
-			// name of gate or pin
+			// name of gate, wire, or pin
 			std::string name;
 
 			enum class Type : unsigned {Dummy, Gate, Wire, PI, PO};

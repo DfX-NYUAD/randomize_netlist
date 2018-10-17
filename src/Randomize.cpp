@@ -110,43 +110,44 @@ void Randomize::iteration(Data& data, double& HD) {
 	//
 	std::cout << "Randomize>  Performing random operation on current netlist ..." << std::endl;
 
+	// TODO also allow to pick operation as optional argument
 	// pick operation randomly
 	// see also Randomize::RandomOperation for definition of opcodes
 	//
 	// TODO
-	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 5));
-	op = static_cast<Randomize::RandomOperation>(Randomize::rand(0, 3));
+	op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 6));
+	op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 4));
+	op = static_cast<Randomize::RandomOperation>(4);
 	switch (op) {
 
 		case Randomize::RandomOperation::ReplaceCell:
-			std::cout << "Randomize>   0) Replace underlying cell" << std::endl;
+			std::cout << "Randomize>   1) Replace underlying cell" << std::endl;
 			Randomize::randomizeHelperReplaceCell(data, netlist);
 			check_for_loops = false;
 			break;
 
 		case Randomize::RandomOperation::SwapOutputs:
-			std::cout << "Randomize>   1) Swap outputs" << std::endl;
+			std::cout << "Randomize>   2) Swap outputs" << std::endl;
 			Randomize::randomizeHelperSwapOutputs(netlist);
 			// connectivity is modified, so check for loops
 			check_for_loops = true;
 			break;
 
 		case Randomize::RandomOperation::SwapInputs:
-			std::cout << "Randomize>   2) Swap inputs" << std::endl;
+			std::cout << "Randomize>   3) Swap inputs" << std::endl;
 			Randomize::randomizeHelperSwapInputs(netlist);
 			// connectivity is modified, so check for loops
 			check_for_loops = true;
 			break;
 
 		case Randomize::RandomOperation::DeleteGate:
-			std::cout << "Randomize>   3) Delete gate" << std::endl;
-			// TODO
-			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			std::cout << "Randomize>   4) Delete gate" << std::endl;
+			Randomize::randomizeHelperDeleteGate(netlist);
 			check_for_loops = false;
 			break;
 
 		case Randomize::RandomOperation::InsertGate:
-			std::cout << "Randomize>   4) Insert gate" << std::endl;
+			std::cout << "Randomize>   5) Insert gate" << std::endl;
 			// TODO
 			//Randomize::randomizeHelperReplaceCell(data, netlist);
 			// connectivity is modified, by picking some input nets among the netlist, so check for loops
@@ -154,8 +155,6 @@ void Randomize::iteration(Data& data, double& HD) {
 			break;
 	}
 
-	// 4) delete gate:
-	// 	replace all output nets with some of the input nets
 	// 5) insert gate:
 	// 	pick some net randomly
 	// 	insert gate within net, i.e., decompose net into input and output part
@@ -319,7 +318,7 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 
 	if (!found) {
 		std::cout << "Randomize>    Warning: could not find any other suitable cell to replace this gate's cell (\"" <<
-			gate.cell->type << "\" with" << std::endl;
+			gate.cell->type << "\" with; skipping operation ..." << std::endl;
 	}
 	// cell to replace with found;
 	// randomly re-assign all nets/pins connected to input/output pins of gate to some pins of the new cell
@@ -429,7 +428,7 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 			// check for the same number of children/fan-out on the current graph (not yet updated, but that is OK since this
 			// very gate modification is also not done yet)
 			// 
-			bool same_fanout = (netlist.nodes[output_a->second].children.size() == netlist.nodes[output_b->second].children.size());
+			bool const same_fanout = (netlist.nodes[output_a->second].children.size() == netlist.nodes[output_b->second].children.size());
 			if (ignore_fanout || (!ignore_fanout && same_fanout)) {
 
 				found = true;
@@ -446,7 +445,7 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 	}
 
 	if (!found) {
-		std::cout << "Randomize>    Warning: could not find any suitable pair of gates to swap outputs" << std::endl;
+		std::cout << "Randomize>    Warning: could not find any suitable pair of gates to swap outputs; skipping operation ..." << std::endl;
 	}
 }
 
@@ -476,6 +475,143 @@ void Randomize::randomizeHelperSwapInputs(Data::Netlist& netlist) {
 
 	// finally, swap the inputs
 	std::swap(input_a->second, input_b->second);
+}
+
+// 4) delete gate:
+// 	replace all output nets with some of the input nets
+void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
+	bool found;
+	unsigned trials, trials_stop;
+
+	found = false;
+	trials = 0;
+	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
+
+	while (!found && (trials < trials_stop)) {
+
+		// pick a gate randomly
+		//
+		Data::Gate& gate = netlist.gates[
+			Randomize::rand(0, netlist.gates.size())
+				];
+
+		// sanity check for more outputs than inputs; if so, we cannot replace all outputs with some input (for such cases, we would
+		// have to (randomly) select further nets from the netlist -- this is doable, but would impose checking for loops, and is
+		// just not implemented as of now since Nangate (or other regular libraries) have no gates with more outputs than inputs 
+		if (gate.outputs.size() > gate.inputs.size()) {
+			continue;
+		}
+
+		// check whether that gate connects to some PI/PO; if so, ignore that gate for simplicity
+		//
+		// check for sinks/drivers from the current graph (not yet updated, but that is OK since this very gate modification is also
+		// not done yet)
+		bool PI_found = false;
+		for (auto const* driver : netlist.nodes[gate.name].parents) {
+
+			if (driver->type == Data::Node::Type::PI) {
+				PI_found = true;
+				break;
+			}
+		}
+		bool PO_found = false;
+		for (auto const* sink : netlist.nodes[gate.name].children) {
+
+			if (sink->type == Data::Node::Type::PO) {
+				PO_found = true;
+				break;
+			}
+		}
+		if (PI_found || PO_found) {
+			continue;
+		}
+
+		// otherwise, gate is valid to delete
+		found = true;
+
+		std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
+
+		// replace the input net of any subsequent gate (which was originally driven by the gate to be deleted) with a randomly
+		// selected input of that gate -- thereby the driver of the gate to be deleted becomes the driver of the subsequent gate
+		//
+		std::unordered_map<std::string, std::string> inputs = gate.inputs;
+		for (auto const& output : gate.outputs) {
+
+			// randomly pick one of the remaining input nets
+			auto input = inputs.begin();
+			std::advance(input, Randomize::rand(0, inputs.size()));
+			// store name of input net separately
+			std::string input_net = input->second;
+			// remove input net from map of inputs still available
+			inputs.erase(input);
+
+			if (Randomize::DBG) {
+				std::cout << "DBG>     Handle the following output of the gate to be deleted: \"" << output.second << "\"" << std::endl;
+				std::cout << "DBG>      Leverage the following input of the gate to be deleted: \"" << input_net << "\"" << std::endl;
+			}
+
+			// revise subsequent gates (sinks)
+			//
+// (TODO) for some reason, this quick access to all sinks had to been working in these sense that any modification "sink_input.second =
+// input_net" did not carry over ...
+//
+//			for (auto* sink : netlist.nodes[output.second].children) {
+//				for (auto& sink_input : sink->gate->inputs) {
+//
+			for (auto& gate : netlist.gates) {
+
+				for (auto& sink_input : gate.inputs) {
+
+					// the input of that gate matches the output of the gate to be deleted; that gate is a sink
+					if (sink_input.second == output.second) {
+
+						if (Randomize::DBG) {
+							std::cout << "DBG>      Replace the following sink's input with that input above: \"";
+							std::cout << gate.name << "\"" << std::endl;
+							std::cout << "DBG>       Previous sink input: \"" << sink_input.second << "\"" << std::endl;
+						}
+
+						// replace that input net with the selected input
+						sink_input.second = input_net;
+
+						if (Randomize::DBG) {
+							std::cout << "DBG>       New sink input: \"" << sink_input.second << "\"" << std::endl;
+						}
+					}
+				}
+			}
+
+			// delete that wire from the netlist
+			for (auto iter = netlist.wires.begin(); iter != netlist.wires.end(); ++iter) {
+				if ((*iter) == output.second) {
+
+					if (Randomize::DBG) {
+						std::cout << "DBG>      Delete the following wire from the netlist: \"" << *iter << "\"" << std::endl;
+					}
+
+					netlist.wires.erase(iter);
+					break;
+				}
+			}
+		}
+
+		// finally, delete that gate from the netlist
+		for (auto iter = netlist.gates.begin(); iter != netlist.gates.end(); ++iter) {
+			if ((*iter).name == gate.name) {
+
+				if (Randomize::DBG) {
+					std::cout << "DBG>      Delete the following gate from the netlist: \"" << (*iter).name << "\"" << std::endl;
+				}
+
+				netlist.gates.erase(iter);
+				break;
+			}
+		}
+	}
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
+		return;
+	}
 }
 
 void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, unsigned const& iterations, double& HD_threads, std::mutex& m) {
@@ -1118,6 +1254,10 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 	}
 
 	// add wires as nodes
+	//
+	// important to note: the data structure for netlist.nodes is std::unordered_map, that means in case a wire with the same name as a
+	// PI/PO is to be inserted, that wire will be ignored, since the PI/PO node has been already inserted above
+	//
 	for (auto const& wire : netlist.wires) {
 
 		netlist.nodes.insert(std::make_pair(
