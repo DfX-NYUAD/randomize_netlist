@@ -21,12 +21,26 @@ class Data {
 		static const std::string STRINGS_GLOBAL_SOURCE;
 		static const std::string STRINGS_GLOBAL_SINK;
 
-		// threads
-		unsigned threads = 1;
-		// HD sampling iterations
-		unsigned HD_sampling_iterations = 1e3;
-		// desired HD value
-		double HD_target = 0.5;
+		struct parameters {
+			// threads
+			unsigned threads = 1;
+			// desired HD value
+			double HD_target = 0.5;
+			// HD sampling iterations
+			unsigned HD_sampling_iterations = 1e3;
+
+			// try to consider and keep the fan-outs when swapping outputs for a pair of gates
+			bool consider_fanout = false;
+			// try to keep the same driving strength when replacing the cell type;
+			// parsed in IO::parseParametersFiles
+			// can be overwritten in Randomize::randomizeHelperReplaceCell if needed
+			mutable bool consider_driving_strength = true;
+
+			// default is -1; pick operation randomly
+			static constexpr int DEFAULT_RANDOM_OP = -1;
+			int random_op = DEFAULT_RANDOM_OP;
+
+		} parameters;
 
 		// POD for files names
 		struct files {

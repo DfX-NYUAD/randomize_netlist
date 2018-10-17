@@ -1,22 +1,33 @@
 
 #include "IO.hpp"
 #include "Data.hpp"
+#include "Randomize.hpp"
 
 // parse program parameters and test files
 void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
 	if (argc < 6) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [sampling_iterations]]]" << std::endl;
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
 		std::cout << "IO> Mandatory parameter ``out.v'': Output; randomized netlist" << std::endl;
-		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.threads << std::endl;
-		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.HD_target << std::endl;
-		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation; default value: " << data.HD_sampling_iterations << std::endl;
+		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
+		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
+		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
+		std::cout << "IO> Optional parameter ``consider_fanout'': when swapping outputs for a pair of gate, try to match the fan-out for those outputs; default value: " << data.parameters.consider_fanout << std::endl;
+		std::cout << "IO> Optional parameter ``consider_driving_strength'': when replacing the underlying cell type, try to keep the same driving strength; default value: " << data.parameters.consider_driving_strength << std::endl;
+		std::cout << "IO> Optional parameter ``random_op'': Integer code for the random operation to be applied; possible values: " << std::endl;
+		std::cout << "IO>  Replace underlying cell type: " << static_cast<unsigned>(Randomize::RandomOperation::ReplaceCell) << std::endl;
+		std::cout << "IO>  Swap outputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapOutputs) << std::endl;
+		std::cout << "IO>  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
+		std::cout << "IO>  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
+		std::cout << "IO>  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
+		std::cout << "IO> " << std::endl;
+		std::cout << "IO>  Note that there's no default value -- in case this parameter is not provided, the above operations will be picked randomly" << std::endl;
 		std::cout << "IO> " << std::endl;
 		exit(1);
 	}
@@ -30,13 +41,46 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// read in optional arguments
 	if (argc >= 7) {
-		data.threads = std::stoi(argv[6]);
+		data.parameters.threads = std::stoi(argv[6]);
 	}
 	if (argc >= 8) {
-		data.HD_target = std::stod(argv[7]);
+		data.parameters.HD_target = std::stod(argv[7]);
 	}
-	if (argc == 9) {
-		data.HD_sampling_iterations = std::stoi(argv[8]);
+	if (argc >= 9) {
+		data.parameters.HD_sampling_iterations = std::stoi(argv[8]);
+	}
+	if (argc >= 10) {
+		std::string arg = argv[9];
+
+		if (arg == "1" || arg == "true") {
+			data.parameters.consider_fanout = true;
+		}
+		else if (arg == "0" || arg == "false") {
+			data.parameters.consider_fanout = false;
+		}
+		else {
+			std::cout << "IO> Provide a Boolean value for the optional parameter ``consider_fanout''; currently provided: \"";
+			std::cout << arg << "\"" << std::endl;
+			exit(1);
+		}
+	}
+	if (argc >= 11) {
+		std::string arg = argv[10];
+
+		if (arg == "1" || arg == "true") {
+			data.parameters.consider_driving_strength = true;
+		}
+		else if (arg == "0" || arg == "false") {
+			data.parameters.consider_driving_strength = false;
+		}
+		else {
+			std::cout << "IO> Provide a Boolean value for the optional parameter ``consider_driving_strength''; currently provided: \"";
+			std::cout << arg << "\"" << std::endl;
+			exit(1);
+		}
+	}
+	if (argc == 12) {
+		data.parameters.random_op = std::stoi(argv[11]);
 	}
 
 	// test input files
@@ -50,9 +94,18 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
 	std::cout << "IO> Parameter ``out.v'': " << data.files.out_netlist << std::endl;
-	std::cout << "IO> Parameter ``threads'': " << data.threads << std::endl;
-	std::cout << "IO> Parameter ``HD_target'': " << data.HD_target << std::endl;
-	std::cout << "IO> Parameter ``sampling_iterations'': " << data.HD_sampling_iterations << std::endl;
+	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
+	std::cout << "IO> Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
+	std::cout << "IO> Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
+	std::cout << "IO> Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
+	std::cout << "IO> Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
+	std::cout << "IO> Parameter ``random_op'': " << data.parameters.random_op << std::endl;
+	std::cout << "IO>  Replace underlying cell type: " << static_cast<unsigned>(Randomize::RandomOperation::ReplaceCell) << std::endl;
+	std::cout << "IO>  Swap outputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapOutputs) << std::endl;
+	std::cout << "IO>  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
+	std::cout << "IO>  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
+	std::cout << "IO>  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
+	std::cout << "IO>  Randomly any of the above operation: " << Data::parameters::DEFAULT_RANDOM_OP << std::endl;
 	std::cout << "IO> " << std::endl;
 };
 
@@ -642,9 +695,18 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out << "// Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	out << "// Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
 	out << "// Parameter ``out.v'': " << data.files.out_netlist << std::endl;
-	out << "// Parameter ``threads'': " << data.threads << std::endl;
-	out << "// Parameter ``HD_target'': " << data.HD_target << std::endl;
-	out << "// Parameter ``sampling_iterations'': " << data.HD_sampling_iterations << std::endl;
+	out << "// Parameter ``threads'': " << data.parameters.threads << std::endl;
+	out << "// Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
+	out << "// Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
+	out << "// Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
+	out << "// Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
+	out << "// Parameter ``random_op'': " << data.parameters.random_op << std::endl;
+	out << "//  Replace underlying cell type: " << static_cast<unsigned>(Randomize::RandomOperation::ReplaceCell) << std::endl;
+	out << "//  Swap outputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapOutputs) << std::endl;
+	out << "//  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
+	out << "//  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
+	out << "//  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
+	out << "//  Randomly any of the above operation: " << Data::parameters::DEFAULT_RANDOM_OP << std::endl;
 	out << "//" << std::endl;
 	out << "//" << std::endl;
 	out << "// Achieved the following HD for this randomized netlist: " << HD << std::endl;

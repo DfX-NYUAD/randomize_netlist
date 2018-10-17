@@ -74,10 +74,10 @@ int main (int argc, char** argv) {
 		iter++;
 	}
 	// TODO alternatively, catch Ctrl C
-	while (HD < data.HD_target);
+	while (HD < data.parameters.HD_target);
 
 	std::cout << "Randomize>" << std::endl;
-	std::cout << "Randomize> Done; target HD (" << data.HD_target << ") has been reached" << std::endl;
+	std::cout << "Randomize> Done; target HD (" << data.parameters.HD_target << ") has been reached" << std::endl;
 
 	// log modification statistics
 	std::cout << "Randomize>" << std::endl;
@@ -110,14 +110,17 @@ void Randomize::iteration(Data& data, double& HD) {
 	//
 	std::cout << "Randomize>  Performing random operation on current netlist ..." << std::endl;
 
-	// TODO also allow to pick operation as optional argument
-	// pick operation randomly
+	// if not provided as parameter, pick operation randomly
 	// see also Randomize::RandomOperation for definition of opcodes
 	//
-	// TODO
-	op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 6));
-	op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 4));
-	op = static_cast<Randomize::RandomOperation>(4);
+	if (data.parameters.random_op == Data::parameters::DEFAULT_RANDOM_OP) {
+		op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 6));
+		// (TODO) for testing individual operations
+		//op = static_cast<Randomize::RandomOperation>(5);
+	}
+	else {
+		op = static_cast<Randomize::RandomOperation>(data.parameters.random_op);
+	}
 	switch (op) {
 
 		case Randomize::RandomOperation::ReplaceCell:
@@ -128,7 +131,7 @@ void Randomize::iteration(Data& data, double& HD) {
 
 		case Randomize::RandomOperation::SwapOutputs:
 			std::cout << "Randomize>   2) Swap outputs" << std::endl;
-			Randomize::randomizeHelperSwapOutputs(netlist);
+			Randomize::randomizeHelperSwapOutputs(data.parameters.consider_fanout, netlist);
 			// connectivity is modified, so check for loops
 			check_for_loops = true;
 			break;
@@ -153,6 +156,10 @@ void Randomize::iteration(Data& data, double& HD) {
 			// connectivity is modified, by picking some input nets among the netlist, so check for loops
 			check_for_loops = true;
 			break;
+
+		default:
+			std::cout << "Randomize>   Warning: unsupported operation code: \"" << data.parameters.random_op << "\" -- skipping operation" << std::endl;
+			check_for_loops = false;
 	}
 
 	// 5) insert gate:
@@ -182,10 +189,10 @@ void Randomize::iteration(Data& data, double& HD) {
 	std::cout << "Randomize>  Evaluating HD of modified netlist ..." << std::endl;
 
 	// evaluate HD in parallel
-	threads.reserve(data.threads);
-	unsigned const iterations_per_thread = std::ceil(static_cast<double>(data.HD_sampling_iterations) / data.threads);
+	threads.reserve(data.parameters.threads);
+	unsigned const iterations_per_thread = std::ceil(static_cast<double>(data.parameters.HD_sampling_iterations) / data.parameters.threads);
 	double HD_threads = 0.0;
-	for (unsigned t = 0; t < data.threads; t++) {
+	for (unsigned t = 0; t < data.parameters.threads; t++) {
 		// pass original netlist and local graph as copies, since the threads have to work on separate data sets
 		// HD will be summed up in the threads (using the mutex)
 		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist_original, netlist.nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
@@ -197,7 +204,7 @@ void Randomize::iteration(Data& data, double& HD) {
 	// clean up all threads
 	threads.clear();
 	// normalize HD summed up across all threads
-	HD_threads /= data.threads;
+	HD_threads /= data.parameters.threads;
 
 	// if HD improved, make local netlist the new global netlist
 	//
@@ -240,7 +247,7 @@ void Randomize::iteration(Data& data, double& HD) {
 // 1) swap gate type / underlying cell
 //
 void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist) {
-	bool found, ignore_driving_strength;
+	bool found;
 	unsigned trials, trials_stop;
 	Data::Cell const* cell;
 
@@ -256,8 +263,6 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 	// search until a suitable cell was found, or until sufficient number of trials have been conducted
 	//
 	found = false;
-	// TODO define as optional call parameter
-	ignore_driving_strength = false;
 	trials = 0;
 	trials_stop = data.cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
@@ -267,8 +272,8 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 		if (trials == trials_stop) {
 			// so far the driving strength had to match;
 			// but now, since many trials had already been done, drop that constraint, and reset trials counter
-			if (!ignore_driving_strength) {
-				ignore_driving_strength = true;
+			if (data.parameters.consider_driving_strength) {
+				data.parameters.consider_driving_strength = false;
 				trials = 0;
 			}
 			// driving strength has been already ignored (for 2nd part of trials); still no suitable cell found; abort
@@ -284,7 +289,7 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 
 		// possibly consider driving strength, see also above
 		//
-		if (ignore_driving_strength || (!ignore_driving_strength && (cell->strength == gate.cell->strength))) {
+		if (!data.parameters.consider_driving_strength || (data.parameters.consider_driving_strength && (cell->strength == gate.cell->strength))) {
 
 			// should be a cell with same number of inputs/outputs
 			//
@@ -377,16 +382,13 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 // 2) swap output connectivity:
 // 	select two outputs (of different gates), possibly with same fan-out degree
 // 	swap the output nets
-void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
-	bool found, ignore_fanout;
+void Randomize::randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist& netlist) {
+	bool found;
 	unsigned trials, trials_stop;
 
 	found = false;
 	trials = 0;
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
-	// fan-out can be ignored
-	// TODO define as optional call parameter
-	ignore_fanout = true;
 
 	while (!found) {
 
@@ -394,8 +396,8 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 		if (trials == trials_stop) {
 			// so far the fan out had to match;
 			// but now, since many trials had already been done, drop that constraint, and reset trials counter
-			if (!ignore_fanout) {
-				ignore_fanout = true;
+			if (consider_fanout) {
+				consider_fanout = false;
 				trials = 0;
 			}
 			// fan out has been already ignored (for 2nd part of trials); still no suitable pair of gates found; abort
@@ -429,7 +431,7 @@ void Randomize::randomizeHelperSwapOutputs(Data::Netlist& netlist) {
 			// very gate modification is also not done yet)
 			// 
 			bool const same_fanout = (netlist.nodes[output_a->second].children.size() == netlist.nodes[output_b->second].children.size());
-			if (ignore_fanout || (!ignore_fanout && same_fanout)) {
+			if (!consider_fanout || (consider_fanout && same_fanout)) {
 
 				found = true;
 

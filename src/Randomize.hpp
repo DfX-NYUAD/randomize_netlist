@@ -13,8 +13,6 @@ class Randomize {
 
 	// private data, functions
 	private:
-		enum class RandomOperation : unsigned {ReplaceCell = 1, SwapOutputs = 2, SwapInputs = 3, DeleteGate = 4, InsertGate = 5};
-
 		static void evaluateHD(
 				Data::Netlist orig_netlist_copy,
 				std::unordered_map<std::string, Data::Node> nodes_copy,
@@ -22,10 +20,9 @@ class Randomize {
 				double& HD_threads,
 				std::mutex& m
 			);
-		// TODO as optional parameter
 		static unsigned constexpr TRIALS_LIMIT_FACTOR = 3;
 		static void randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist);
-		static void randomizeHelperSwapOutputs(Data::Netlist& netlist);
+		static void randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist& netlist);
 		static void randomizeHelperSwapInputs(Data::Netlist& netlist);
 		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
 		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes);
@@ -49,6 +46,8 @@ class Randomize {
 
 	// public data, functions
 	public:
+		enum class RandomOperation : unsigned {ReplaceCell = 1, SwapOutputs = 2, SwapInputs = 3, DeleteGate = 4, InsertGate = 5};
+
 		static void iteration(Data& data, double& HD);
 		static void initGraph(Data::Netlist& netlist);
 		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
