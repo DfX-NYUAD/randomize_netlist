@@ -45,17 +45,16 @@ class Randomize {
 			}
 		};
 
-		inline static std::string randAlphanumName() {
+		inline static std::string randName() {
 			std::string ret;
 
-			static const char alphanum[] =
-				"0123456789"
+			static const char alpha[] =
 				"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 				"abcdefghijklmnopqrstuvwxyz";
 
 			for (unsigned i = 0; i < Randomize::RAND_NAME_SIZE; ++i) {
 
-				ret += alphanum[std::rand() % (sizeof(alphanum) - 1)];
+				ret += alpha[std::rand() % (sizeof(alpha) - 1)];
 			}
 
 			return ret;

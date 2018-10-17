@@ -667,7 +667,7 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 		new_gate.cell = cell;
 
 		// randomly generate name
-		new_gate.name = Randomize::randAlphanumName();
+		new_gate.name = Randomize::randName();
 
 		std::cout << "Randomize>     Random " << Randomize::RAND_NAME_SIZE << "-character name for new gate: \"" << new_gate.name  << "\"" << std::endl;
 
