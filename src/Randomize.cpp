@@ -115,8 +115,6 @@ void Randomize::iteration(Data& data, double& HD) {
 	//
 	if (data.parameters.random_op == Data::parameters::DEFAULT_RANDOM_OP) {
 		op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 6));
-		// (TODO) for testing individual operations
-		//op = static_cast<Randomize::RandomOperation>(5);
 	}
 	else {
 		op = static_cast<Randomize::RandomOperation>(data.parameters.random_op);
@@ -151,8 +149,7 @@ void Randomize::iteration(Data& data, double& HD) {
 
 		case Randomize::RandomOperation::InsertGate:
 			std::cout << "Randomize>   5) Insert gate" << std::endl;
-			// TODO
-			//Randomize::randomizeHelperReplaceCell(data, netlist);
+			Randomize::randomizeHelperInsertGate(data.cells, netlist);
 			// connectivity is modified, by picking some input nets among the netlist, so check for loops
 			check_for_loops = true;
 			break;
@@ -161,11 +158,6 @@ void Randomize::iteration(Data& data, double& HD) {
 			std::cout << "Randomize>   Warning: unsupported operation code: \"" << data.parameters.random_op << "\" -- skipping operation" << std::endl;
 			check_for_loops = false;
 	}
-
-	// 5) insert gate:
-	// 	pick some net randomly
-	// 	insert gate within net, i.e., decompose net into input and output part
-	// 	pick remaining input nets for gate randomly from netlist
 
 	// init the local graph 
 	Randomize::initGraph(netlist);
@@ -267,6 +259,7 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 	trials_stop = data.cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found) {
+		trials++;
 
 		// break handler
 		if (trials == trials_stop) {
@@ -313,12 +306,9 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 
 				if (!same_fct) {
 					found = true;
-
-					std::cout << "Randomize>    Current cell type: \"" << gate.cell->type << "\"; new cell type: \"" << cell->type << "\"" << std::endl;
 				}
 			}
 		}
-		trials++;
 	}
 
 	if (!found) {
@@ -328,6 +318,8 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 	// cell to replace with found;
 	// randomly re-assign all nets/pins connected to input/output pins of gate to some pins of the new cell
 	else {
+		std::cout << "Randomize>    Current cell type: \"" << gate.cell->type << "\"; new cell type: \"" << cell->type << "\"" << std::endl;
+
 		std::set<std::string> pins_not_connected_yet;
 		// cell pin name, net/pin name
 		std::unordered_map<std::string, std::string> inputs, outputs;
@@ -391,6 +383,7 @@ void Randomize::randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist&
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found) {
+		trials++;
 
 		// break handler
 		if (trials == trials_stop) {
@@ -443,7 +436,6 @@ void Randomize::randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist&
 				std::swap(output_a->second, output_b->second);
 			}
 		}
-		trials++;
 	}
 
 	if (!found) {
@@ -498,9 +490,13 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			Randomize::rand(0, netlist.gates.size())
 				];
 
-		// sanity check for more outputs than inputs; if so, we cannot replace all outputs with some input (for such cases, we would
+		// sanity check against more outputs than inputs; if so, we cannot replace all outputs with some input (for such cases, we would
 		// have to (randomly) select further nets from the netlist -- this is doable, but would impose checking for loops, and is
 		// just not implemented as of now since Nangate (or other regular libraries) have no gates with more outputs than inputs 
+		//
+		// note that this also captures cells with zero inputs but some output, like TIE cells -- deleting them would make some
+		// other cells' inputs dangling
+		//
 		if (gate.outputs.size() > gate.inputs.size()) {
 			continue;
 		}
@@ -533,13 +529,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		found = true;
 
 		std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
-	}
 
-	if (!found) {
-		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
-		return;
-	}
-	else {
 		// replace the input net of any subsequent gate (which was originally driven by the gate to be deleted) with a randomly
 		// selected input of that gate -- thereby the driver of the gate to be deleted becomes the driver of the subsequent gate
 		//
@@ -616,6 +606,129 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 				break;
 			}
 		}
+	}
+
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
+		return;
+	}
+}
+
+// 5) insert gate:
+// 	pick some net randomly
+// 	insert gate within net, i.e., decompose net into input and output part
+// 	pick remaining input nets for gate randomly from netlist
+void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist) {
+	bool found;
+	unsigned trials, trials_stop;
+	Data::Cell const* cell;
+	std::string random_net, new_net;
+
+	found = false;
+	trials = 0;
+	trials_stop = cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
+
+	while (!found && (trials < trials_stop)) {
+		trials++;
+
+		// randomly pick cell type 
+		//
+		auto iter = cells.begin();
+		std::advance(iter, Randomize::rand(0, cells.size()));
+		cell = &(iter->second);
+
+		// there should be at least one input (that is because insertion is done by putting the new gate within an already existing
+		// net)
+		//
+		// note that this captures cells like TIE cells -- inserting them would require insertion of subsequent sinks at once,
+		// otherwise their output would remain dangling
+		//
+		if (cell->inputs.empty()) {
+			continue;
+		}
+		// also sanity check against more outputs than inputs
+		else if (cell->outputs.size() > cell->inputs.size()) {
+			continue;
+		}
+		else {
+			found = true;
+		}
+	}
+
+	if (!found) {
+		std::cout << "Randomize>    Warning: could not find any suitable pair of gates to swap outputs; skipping operation ..." << std::endl;
+	}
+	else {
+		std::cout << "Randomize>    Randomly picked cell type: \"" << cell->type << "\"" << std::endl;
+
+		// new gate
+		Data::Gate new_gate = Data::Gate();
+		// assign cell
+		new_gate.cell = cell;
+
+		// randomly generate name
+		new_gate.name = Randomize::randAlphanumName();
+
+		std::cout << "Randomize>     Random " << Randomize::RAND_NAME_SIZE << "-character name for new gate: \"" << new_gate.name  << "\"" << std::endl;
+
+		// now, for each of the cell's outputs, randomly pick a net where the gate should be inserted into
+		//
+		for (auto const& output : cell->outputs) {
+
+			random_net = netlist.wires[
+				Randomize::rand(0, netlist.wires.size())
+					];
+
+			std::cout << "Randomize>     Insert gate (output pin \"" << output << "\") into the following net: \"" << random_net << "\"" << std::endl;
+
+			// inserting the new gate into that net requires the following two steps
+			//
+
+			// 1) assign that net as an input for the new gate
+			//
+			// also pick the input pin randomly
+			auto iter = cell->inputs.begin();
+			std::advance(iter, Randomize::rand(0, cell->inputs.size()));
+			
+			new_gate.inputs.insert(std::make_pair(
+						*iter,
+						random_net
+					));
+
+			// 2) replace all the matching sink inputs for that net with an new net defined for the new gate's output
+			//
+			// derive the new net name
+			new_net = new_gate.name + "_" + output;
+
+			// as with Randomize::randomizeHelperDeleteGate, work directly on gates, not on graph
+			//
+			for (auto& gate : netlist.gates) {
+
+				for (auto& sink_input : gate.inputs) {
+
+					// the input of that gate matches the net where the gate is inserted into
+					if (sink_input.second == random_net) {
+
+						// replace that input net with the new net
+						sink_input.second = new_net;
+					}
+				}
+			}
+
+			// 3) assign the new net as output for the new gate
+			//
+			new_gate.outputs.insert(std::make_pair(
+						output,
+						new_net
+					));
+
+			// 4) insert the new net as wire into the netlist
+			//
+			netlist.wires.emplace_back(std::move(new_net));
+		}
+
+		// finally, memorize the gate in the netlist
+		netlist.gates.emplace_back(std::move(new_gate));
 	}
 }
 

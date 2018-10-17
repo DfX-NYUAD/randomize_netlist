@@ -11,6 +11,9 @@ class Randomize {
 		static constexpr bool DBG = false;
 		static constexpr bool DBG_VERBOSE = false;
 
+		// the length (chars) of the random name for new gates
+		static constexpr unsigned RAND_NAME_SIZE = 32;
+
 	// private data, functions
 	private:
 		static void evaluateHD(
@@ -25,6 +28,7 @@ class Randomize {
 		static void randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist& netlist);
 		static void randomizeHelperSwapInputs(Data::Netlist& netlist);
 		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
+		static void randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist);
 		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes);
 		static void determGraphOrderRec(Data::Node const* node);
 		static bool evaluateString(std::string function);
@@ -40,6 +44,22 @@ class Randomize {
 				return min + (std::rand() % (max - min));
 			}
 		};
+
+		inline static std::string randAlphanumName() {
+			std::string ret;
+
+			static const char alphanum[] =
+				"0123456789"
+				"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+				"abcdefghijklmnopqrstuvwxyz";
+
+			for (unsigned i = 0; i < Randomize::RAND_NAME_SIZE; ++i) {
+
+				ret += alphanum[std::rand() % (sizeof(alphanum) - 1)];
+			}
+
+			return ret;
+		}
 
 	// constructors, destructors, if any non-implicit
 	private:
