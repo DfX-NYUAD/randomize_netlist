@@ -28,6 +28,8 @@ class Data {
 			double HD_target = 0.5;
 			// HD sampling iterations
 			unsigned HD_sampling_iterations = 1e3;
+			// acceptance ratio for modifications with inferior HD
+			double acceptance_ratio = 1e-2;
 
 			// try to consider and keep the fan-outs when swapping outputs for a pair of gates
 			bool consider_fanout = false;

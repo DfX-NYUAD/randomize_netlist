@@ -200,8 +200,15 @@ void Randomize::iteration(Data& data, double& HD) {
 
 	// if HD improved, make local netlist the new global netlist
 	//
-	if (HD_threads > HD) {
-		std::cout << "Randomize>   New HD (" << HD_threads << ") improves current HD (" << HD << "); memorizing netlist modification" << std::endl;
+	// also allow for some random chance to accept an inferior solution
+	if ((HD_threads > HD) || ((100 * data.parameters.acceptance_ratio) > Randomize::rand(0, 100))) {
+		// different logging
+		if (HD_threads > HD) {
+			std::cout << "Randomize>   New HD (" << HD_threads << ") improves current HD (" << HD << "); memorizing netlist modification" << std::endl;
+		}
+		else {
+			std::cout << "Randomize>   New HD (" << HD_threads << ") does not improve current HD (" << HD << "); still memorizing netlist modification by random chance (considering the parameter ``acceptance_ratio'')" << std::endl;
+		}
 
 		data.netlist = std::move(netlist);
 		// also track new HD

@@ -8,7 +8,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
 	if (argc < 6) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]" << std::endl;
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [acceptance_ratio [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
@@ -17,6 +17,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		std::cout << "IO> Mandatory parameter ``out.v'': Output; randomized netlist" << std::endl;
 		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
 		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
+		std::cout << "IO> Optional parameter ``acceptance_ratio'': Ratio for accepting some modification with inferior HD [0.0 - 1.0]; default value: " << data.parameters.acceptance_ratio << std::endl;
 		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
 		std::cout << "IO> Optional parameter ``consider_fanout'': when swapping outputs for a pair of gate, try to match the fan-out for those outputs; default value: " << data.parameters.consider_fanout << std::endl;
 		std::cout << "IO> Optional parameter ``consider_driving_strength'': when replacing the underlying cell type, try to keep the same driving strength; default value: " << data.parameters.consider_driving_strength << std::endl;
@@ -47,10 +48,13 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		data.parameters.HD_target = std::stod(argv[7]);
 	}
 	if (argc >= 9) {
-		data.parameters.HD_sampling_iterations = std::stoi(argv[8]);
+		data.parameters.acceptance_ratio = std::stod(argv[8]);
 	}
 	if (argc >= 10) {
-		std::string arg = argv[9];
+		data.parameters.HD_sampling_iterations = std::stoi(argv[9]);
+	}
+	if (argc >= 11) {
+		std::string arg = argv[10];
 
 		if (arg == "1" || arg == "true") {
 			data.parameters.consider_fanout = true;
@@ -64,8 +68,8 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 			exit(1);
 		}
 	}
-	if (argc >= 11) {
-		std::string arg = argv[10];
+	if (argc >= 12) {
+		std::string arg = argv[11];
 
 		if (arg == "1" || arg == "true") {
 			data.parameters.consider_driving_strength = true;
@@ -79,8 +83,8 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 			exit(1);
 		}
 	}
-	if (argc == 12) {
-		data.parameters.random_op = std::stoi(argv[11]);
+	if (argc == 13) {
+		data.parameters.random_op = std::stoi(argv[12]);
 	}
 
 	// test input files
@@ -96,6 +100,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``out.v'': " << data.files.out_netlist << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
 	std::cout << "IO> Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
+	std::cout << "IO> Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
 	std::cout << "IO> Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
 	std::cout << "IO> Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
 	std::cout << "IO> Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
@@ -697,6 +702,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out << "// Parameter ``out.v'': " << data.files.out_netlist << std::endl;
 	out << "// Parameter ``threads'': " << data.parameters.threads << std::endl;
 	out << "// Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
+	out << "// Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
 	out << "// Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
 	out << "// Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
 	out << "// Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
