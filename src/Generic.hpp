@@ -22,5 +22,6 @@
 #include <mutex>
 #include <chrono>
 #include <cmath>
+#include <signal.h>
 
 #endif

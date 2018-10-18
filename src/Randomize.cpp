@@ -3,8 +3,28 @@
 #include "Randomize.hpp"
 #include "Data.hpp"
 
+// memory allocation
 const std::string Data::STRINGS_GLOBAL_SOURCE = "GLOBAL_SOURCE";
 const std::string Data::STRINGS_GLOBAL_SINK = "GLOBAL_SINK";
+
+// signal handler
+static int s_interrupted = 0;
+static void s_signal_handler (int signal_value) {
+
+	std::cout << "Randomize>" << std::endl;
+	std::cout << "Randomize> Caught signal \"" << signal_value << "\"; aborting after current iteration ..." << std::endl;
+	std::cout << "Randomize>" << std::endl;
+
+	s_interrupted = 1;
+}
+static void s_catch_signals (void) {
+	struct sigaction action;
+	action.sa_handler = s_signal_handler;
+	action.sa_flags = 0;
+	sigemptyset (&action.sa_mask);
+	sigaction (SIGINT, &action, NULL);
+	sigaction (SIGTERM, &action, NULL);
+}
 
 int main (int argc, char** argv) {
 	Data data;
@@ -64,6 +84,8 @@ int main (int argc, char** argv) {
 	//
 	iter = 1;
 	HD = 0.0;
+	// also register signal handler
+	s_catch_signals();
 	do {
 
 		std::cout << "Randomize> Iteration: " << iter << std::endl;
@@ -73,11 +95,11 @@ int main (int argc, char** argv) {
 
 		iter++;
 	}
-	// TODO alternatively, catch Ctrl C
-	while (HD < data.parameters.HD_target);
+	// continue until HD reaches target, or until signal is caught
+	while ((HD < data.parameters.HD_target) && (s_interrupted != 1));
 
 	std::cout << "Randomize>" << std::endl;
-	std::cout << "Randomize> Done; target HD (" << data.parameters.HD_target << ") has been reached" << std::endl;
+	std::cout << "Randomize> Done" << std::endl;
 
 	// log modification statistics
 	std::cout << "Randomize>" << std::endl;
