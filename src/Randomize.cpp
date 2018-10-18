@@ -93,6 +93,8 @@ int main (int argc, char** argv) {
 
 		Randomize::iteration(data, HD);
 
+		std::cout << "Randomize>" << std::endl;
+
 		iter++;
 	}
 	// continue until HD reaches target, or until signal is caught
@@ -229,7 +231,7 @@ void Randomize::iteration(Data& data, double& HD) {
 			std::cout << "Randomize>   New HD (" << HD_threads << ") improves current HD (" << HD << "); memorizing netlist modification" << std::endl;
 		}
 		else {
-			std::cout << "Randomize>   New HD (" << HD_threads << ") does not improve current HD (" << HD << "); still memorizing netlist modification by random chance (considering the parameter ``acceptance_ratio'')" << std::endl;
+			std::cout << "Randomize>   New HD (" << HD_threads << ") does not improve current HD (" << HD << "); still memorizing netlist modification (by random chance considering ``acceptance_ratio'' of " << data.parameters.acceptance_ratio << ")" << std::endl;
 		}
 
 		data.netlist = std::move(netlist);
