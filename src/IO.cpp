@@ -7,15 +7,15 @@
 void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
-	if (argc < 6) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions out.v [threads [HD_target [acceptance_ratio [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]]" << std::endl;
+	if (argc < 5) {
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions [threads [intermediate_output_HD_step [HD_target [acceptance_ratio [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
-		std::cout << "IO> Mandatory parameter ``out.v'': Output; randomized netlist" << std::endl;
 		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
+		std::cout << "IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to ``HD_target''; default value: " << data.parameters.intermediate_output_HD_step << std::endl;
 		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
 		std::cout << "IO> Optional parameter ``acceptance_ratio'': Ratio for accepting some modification with inferior HD [0.0 - 1.0]; default value: " << data.parameters.acceptance_ratio << std::endl;
 		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
@@ -27,8 +27,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		std::cout << "IO>  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
 		std::cout << "IO>  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
 		std::cout << "IO>  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
-		std::cout << "IO> " << std::endl;
-		std::cout << "IO>  Note that there's no default value -- in case this parameter is not provided, the above operations will be picked randomly" << std::endl;
+		std::cout << "IO>   Note that there's no default value for ``random_op'' -- in case this parameter is not provided, the above operations will be picked randomly" << std::endl;
 		std::cout << "IO> " << std::endl;
 		exit(1);
 	}
@@ -38,11 +37,13 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	data.files.cells_inputs = argv[2];
 	data.files.cells_outputs = argv[3];
 	data.files.cells_functions = argv[4];
-	data.files.out_netlist = argv[5];
 
 	// read in optional arguments
+	if (argc >= 6) {
+		data.parameters.threads = std::stoi(argv[5]);
+	}
 	if (argc >= 7) {
-		data.parameters.threads = std::stoi(argv[6]);
+		data.parameters.intermediate_output_HD_step = std::stod(argv[6]);
 	}
 	if (argc >= 8) {
 		data.parameters.HD_target = std::stod(argv[7]);
@@ -53,7 +54,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	if (argc >= 10) {
 		data.parameters.HD_sampling_iterations = std::stoi(argv[9]);
 	}
-	if (argc >= 11) {
+	if (argc >= 10) {
 		std::string arg = argv[10];
 
 		if (arg == "1" || arg == "true") {
@@ -97,8 +98,8 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
 	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
-	std::cout << "IO> Parameter ``out.v'': " << data.files.out_netlist << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
+	std::cout << "IO> Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
 	std::cout << "IO> Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
 	std::cout << "IO> Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
 	std::cout << "IO> Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
@@ -684,14 +685,21 @@ void IO::parseNetlist(Data& data) {
 
 void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) {
 	std::ofstream out;
+	std::string out_file;
 
 	// set locale for output; for using thousand separators
 	out.imbue(std::locale(""));
 
-	std::cout << "Randomize>" << std::endl;
-	std::cout << "Randomize> Writing out netlist ..." << std::endl;
+	// derive file name; assume that file type/suffice is 2 characters long (".v")
+	out_file = data.files.in_netlist.substr(0, data.files.in_netlist.length() - 2);
+	out_file += "_rand_HD_";
+	out_file += std::to_string(HD);
+	out_file += ".v";
 
-	out.open(data.files.out_netlist.c_str());
+	std::cout << "Randomize>" << std::endl;
+	std::cout << "Randomize> Writing out netlist \"" << out_file << "\" ..." << std::endl;
+
+	out.open(out_file.c_str());
 
 	out << "// Randomized netlist" << std::endl;
 	out << "//" << std::endl;
@@ -699,8 +707,8 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out << "// Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
 	out << "// Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	out << "// Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
-	out << "// Parameter ``out.v'': " << data.files.out_netlist << std::endl;
 	out << "// Parameter ``threads'': " << data.parameters.threads << std::endl;
+	out << "// Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
 	out << "// Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
 	out << "// Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
 	out << "// Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;

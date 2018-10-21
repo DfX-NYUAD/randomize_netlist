@@ -30,6 +30,7 @@ int main (int argc, char** argv) {
 	Data data;
 	double HD;
 	unsigned iter;
+	unsigned current_intermediate_output_HD_step;
 
 	std::cout << std::endl;
 	std::cout << "Randomize netlist" << std::endl;
@@ -84,6 +85,7 @@ int main (int argc, char** argv) {
 	//
 	iter = 1;
 	HD = 0.0;
+	current_intermediate_output_HD_step = 1;
 	// also register signal handler
 	s_catch_signals();
 	do {
@@ -94,6 +96,17 @@ int main (int argc, char** argv) {
 		Randomize::iteration(data, HD);
 
 		std::cout << "Randomize>" << std::endl;
+
+		// also track intermediate results
+		//
+		// write out netlist for every ``intermediate_output_HD_step'' step
+		if (HD >= (current_intermediate_output_HD_step * data.parameters.intermediate_output_HD_step)) {
+
+			std::cout << "Randomize> Generate intermediate result #" << current_intermediate_output_HD_step << std::endl;
+			IO::writeNetlist(data, HD, iter);
+
+			current_intermediate_output_HD_step++;
+		}
 
 		iter++;
 	}
@@ -111,7 +124,7 @@ int main (int argc, char** argv) {
 	std::cout << "Randomize> Deleted that many gates: " << data.netlist_modifications.deletedGates << std::endl;
 	std::cout << "Randomize> Inserted that many gates: " << data.netlist_modifications.insertedGates << std::endl;
 
-	// output randomized netlist
+	// output final randomized netlist
 	IO::writeNetlist(data, HD, iter - 1);
 
 	// also log runtime

@@ -24,6 +24,8 @@ class Data {
 		struct parameters {
 			// threads
 			unsigned threads = 1;
+			// step size for HD to output/generate intermediate netlist result
+			double intermediate_output_HD_step = 0.05;
 			// desired HD value
 			double HD_target = 0.5;
 			// HD sampling iterations
@@ -50,7 +52,6 @@ class Data {
 			std::string cells_inputs;
 			std::string cells_outputs;
 			std::string cells_functions;
-			std::string out_netlist;
 		} files;
 
 		// PODs for cells
