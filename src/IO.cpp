@@ -687,8 +687,13 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	std::ofstream out;
 	std::string out_file;
 
-	// set locale for output; for using thousand separators
-	out.imbue(std::locale(""));
+	// try to set locale
+	try {
+		out.imbue(std::locale(Data::LOCALE));
+	}
+	catch (std::runtime_error) {
+		std::cout << "Randomize> Warning: failed to set locale \"" << Data::LOCALE << "\" ..." << std::endl;
+	}
 
 	// derive file name; assume that file type/suffice is 2 characters long (".v")
 	out_file = data.files.in_netlist.substr(0, data.files.in_netlist.length() - 2);
