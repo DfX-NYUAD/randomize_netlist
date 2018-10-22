@@ -17,6 +17,9 @@ class Data {
 
 	// public data
 	public:
+		// locale for outputs
+		static const std::string LOCALE;
+
 		// names/identifier for global source/sink nodes
 		static const std::string STRINGS_GLOBAL_SOURCE;
 		static const std::string STRINGS_GLOBAL_SINK;

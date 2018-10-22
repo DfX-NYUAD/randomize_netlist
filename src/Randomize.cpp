@@ -3,9 +3,11 @@
 #include "Randomize.hpp"
 #include "Data.hpp"
 
-// memory allocation
+// string identifiers for key nodes in graph
 const std::string Data::STRINGS_GLOBAL_SOURCE = "GLOBAL_SOURCE";
 const std::string Data::STRINGS_GLOBAL_SINK = "GLOBAL_SINK";
+// US locale for outputs; mainly for "," separator for multiples of thousand
+const std::string Data::LOCALE = "en_US.utf8";
 
 // signal handler
 static int s_interrupted = 0;
@@ -44,8 +46,14 @@ int main (int argc, char** argv) {
 	auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
 	std::srand(nanos);
 
-	// set locale for output; for using thousand separators
-	std::cout.imbue(std::locale(""));
+	// try to set locale
+	try {
+		std::cout.imbue(std::locale(Data::LOCALE));
+	}
+	catch (std::runtime_error) {
+		std::cout << "IO> Warning: failed to set locale \"" << Data::LOCALE << "\" ..." << std::endl;
+		std::cout << "IO>" << std::endl;
+	}
 
 	// parse program parameters and test files
 	IO::parseParametersFiles(data, argc, argv);
