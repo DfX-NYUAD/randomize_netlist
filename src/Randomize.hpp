@@ -11,7 +11,7 @@ class Randomize {
 		static constexpr bool DBG = false;
 		static constexpr bool DBG_VERBOSE = false;
 
-		// the length (chars) of the random name for new gates
+		// the length (in chars) of random names
 		static constexpr unsigned RAND_NAME_SIZE = 32;
 
 	// private data, functions
@@ -45,17 +45,24 @@ class Randomize {
 			}
 		};
 
-		inline static std::string randName() {
-			std::string ret;
-
+		inline static std::string randName(std::unordered_set<std::string>& names_already_taken) {
 			static const char alpha[] =
 				"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 				"abcdefghijklmnopqrstuvwxyz";
 
-			for (unsigned i = 0; i < Randomize::RAND_NAME_SIZE; ++i) {
+			std::string ret;
 
-				ret += alpha[std::rand() % (sizeof(alpha) - 1)];
+			do {
+				ret = "";
+
+				for (unsigned i = 0; i < Randomize::RAND_NAME_SIZE; ++i) {
+					ret += alpha[std::rand() % (sizeof(alpha) - 1)];
+				}
 			}
+			// sanity check to avoid using same random name multiple times
+			//
+			// try to insert current random name into container; if that fails, the name is already taken
+			while (!names_already_taken.emplace(ret).second);
 
 			return ret;
 		}

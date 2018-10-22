@@ -133,6 +133,9 @@ class Data {
 			// graph container
 			// mapping: name, node
 			std::unordered_map<std::string, Data::Node> nodes;
+
+			// set of random names already taken
+			std::unordered_set<std::string> random_names_already_taken;
 		} netlist, netlist_original;
 
 		// PODs for tracking modifications statistic
