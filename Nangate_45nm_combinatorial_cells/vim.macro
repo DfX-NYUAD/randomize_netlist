@@ -1,0 +1,3 @@
+" macro to extract the function string for cells.functions file
+" assumes a copy of cells.outputs as initial cells.functions file in first tab, and library file (.lib) in second tab
+:let @a = '0vey:tabnextgg/\<"\>:tabprev$bvey:tabnext/\<"\>/functionwwlv$hhhy:tabprevvep'
