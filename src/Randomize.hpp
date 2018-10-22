@@ -45,6 +45,18 @@ class Randomize {
 			}
 		};
 
+	// constructors, destructors, if any non-implicit
+	private:
+
+	// public data, functions
+	public:
+		enum class RandomOperation : unsigned {ReplaceCell = 1, SwapOutputs = 2, SwapInputs = 3, DeleteGate = 4, InsertGate = 5};
+
+		static void iteration(Data& data, double& HD);
+		static void initGraph(Data::Netlist& netlist);
+		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
+		static bool checkGraphForCycles(Data::Node const* node);
+
 		inline static std::string randName(std::unordered_set<std::string>& names_already_taken) {
 			static const char alpha[] =
 				"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -66,18 +78,6 @@ class Randomize {
 
 			return ret;
 		}
-
-	// constructors, destructors, if any non-implicit
-	private:
-
-	// public data, functions
-	public:
-		enum class RandomOperation : unsigned {ReplaceCell = 1, SwapOutputs = 2, SwapInputs = 3, DeleteGate = 4, InsertGate = 5};
-
-		static void iteration(Data& data, double& HD);
-		static void initGraph(Data::Netlist& netlist);
-		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
-		static bool checkGraphForCycles(Data::Node const* node);
 };
 
 #endif

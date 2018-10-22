@@ -51,6 +51,7 @@ int main (int argc, char** argv) {
 		std::cout.imbue(std::locale(Data::LOCALE));
 	}
 	catch (std::runtime_error) {
+		std::cout << "IO>" << std::endl;
 		std::cout << "IO> Warning: failed to set locale \"" << Data::LOCALE << "\" ..." << std::endl;
 		std::cout << "IO>" << std::endl;
 	}
@@ -111,7 +112,10 @@ int main (int argc, char** argv) {
 		if (HD >= (current_intermediate_output_HD_step * data.parameters.intermediate_output_HD_step)) {
 
 			std::cout << "Randomize> Generate intermediate result #" << current_intermediate_output_HD_step << std::endl;
+			std::cout << "Randomize>" << std::endl;
 			IO::writeNetlist(data, HD, iter);
+			// also generate a scrambled version
+			IO::writeNetlist(data, HD, iter, true);
 
 			current_intermediate_output_HD_step++;
 		}
@@ -121,19 +125,20 @@ int main (int argc, char** argv) {
 	// continue until HD reaches target, or until signal is caught
 	while ((HD < data.parameters.HD_target) && (s_interrupted != 1));
 
-	std::cout << "Randomize>" << std::endl;
 	std::cout << "Randomize> Done" << std::endl;
 
 	// log modification statistics
+	std::cout << "Randomize>  Replaced cell type for that many gates: " << data.netlist_modifications.replacedCells << std::endl;
+	std::cout << "Randomize>  Swapped outputs for that many pairs of gates: " << data.netlist_modifications.swappedOutputs << std::endl;
+	std::cout << "Randomize>  Swapped inputs for that many pairs of gates: " << data.netlist_modifications.swappedInputs << std::endl;
+	std::cout << "Randomize>  Deleted that many gates: " << data.netlist_modifications.deletedGates << std::endl;
+	std::cout << "Randomize>  Inserted that many gates: " << data.netlist_modifications.insertedGates << std::endl;
 	std::cout << "Randomize>" << std::endl;
-	std::cout << "Randomize> Replaced cell type for that many gates: " << data.netlist_modifications.replacedCells << std::endl;
-	std::cout << "Randomize> Swapped outputs for that many pairs of gates: " << data.netlist_modifications.swappedOutputs << std::endl;
-	std::cout << "Randomize> Swapped inputs for that many pairs of gates: " << data.netlist_modifications.swappedInputs << std::endl;
-	std::cout << "Randomize> Deleted that many gates: " << data.netlist_modifications.deletedGates << std::endl;
-	std::cout << "Randomize> Inserted that many gates: " << data.netlist_modifications.insertedGates << std::endl;
 
 	// output final randomized netlist
 	IO::writeNetlist(data, HD, iter - 1);
+	// also generate a scrambled version
+	IO::writeNetlist(data, HD, iter - 1, true);
 
 	// also log runtime
 	std::chrono::duration<double> runtime = std::chrono::system_clock::now() - start_time;

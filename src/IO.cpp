@@ -683,15 +683,20 @@ void IO::parseNetlist(Data& data) {
 	}
 };
 
-void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) {
+void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, bool scramble) {
 	std::ofstream out;
 	std::string out_file;
+	// for scrambling
+	std::unordered_set<std::string> random_names_already_taken;
+	std::vector<std::string> wires;
+	std::vector<Data::Gate> gates;
 
 	// try to set locale
 	try {
 		out.imbue(std::locale(Data::LOCALE));
 	}
 	catch (std::runtime_error) {
+		std::cout << "IO>" << std::endl;
 		std::cout << "IO> Warning: failed to set locale \"" << Data::LOCALE << "\" ..." << std::endl;
 		std::cout << "IO>" << std::endl;
 	}
@@ -700,14 +705,26 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out_file = data.files.in_netlist.substr(0, data.files.in_netlist.length() - 2);
 	out_file += "_rand_HD_";
 	out_file += std::to_string(HD);
+	if (scramble) {
+		out_file += "_scrambled";
+	}
 	out_file += ".v";
 
-	std::cout << "Randomize>" << std::endl;
-	std::cout << "Randomize> Writing out netlist \"" << out_file << "\" ..." << std::endl;
+	if (scramble) {
+		std::cout << "Randomize>  Writing out randomized and scrambled netlist \"" << out_file << "\" ..." << std::endl;
+	}
+	else {
+		std::cout << "Randomize>  Writing out randomized netlist \"" << out_file << "\" ..." << std::endl;
+	}
 
 	out.open(out_file.c_str());
 
-	out << "// Randomized netlist" << std::endl;
+	if (scramble) {
+		out << "// Randomized and scrambled netlist" << std::endl;
+	}
+	else {
+		out << "// Randomized netlist" << std::endl;
+	}
 	out << "//" << std::endl;
 	out << "// Parameter ``netlist.v'': " << data.files.in_netlist << std::endl;
 	out << "// Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
@@ -741,6 +758,9 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out << "//" << std::endl;
 	out << std::endl;
 
+	if (scramble) {
+		out << "// port names and their order remain as is; they are not scrambled" << std::endl;
+	}
 	out << "module " << data.netlist.module_name << "_rand (" << std::endl;
 
 	// output all inputs for module ports
@@ -762,24 +782,105 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out << std::endl;
 
 	// output all inputs
+	if (scramble) {
+		out << "// port names and their order remain as is; they are not scrambled" << std::endl;
+	}
 	for (auto const& input : data.netlist.inputs) {
 		out << "input " << input << ";" << std::endl;
 	}
 	out << std::endl;
 
 	// output all outputs
+	if (scramble) {
+		out << "// port names and their order remain as is; they are not scrambled" << std::endl;
+	}
 	for (auto const& output : data.netlist.outputs) {
 		out << "output " << output << ";" << std::endl;
 	}
 	out << std::endl;
 
-	// output all wires
+	// for scrambling, keep track of already used random names
+	//
+	// also consider the names already taken for some random operations on the netlist; we're working on a local copy such that the
+	// random names generated and used for this call to IO::writeNetlist are not memorized within
+	// data.netlist.random_names_already_taken as this would remain throughout the remaining program flow -- in other words, only the
+	// random names already fixed in the netlist should be considered, all other names are free to be used
+	//
+	if (scramble) {
+
+		random_names_already_taken = data.netlist.random_names_already_taken;
+
+		// also back-up original wires/gates such that they can be restored after
+		wires = data.netlist.wires;
+		gates = data.netlist.gates;
+	}
+
+	// if needed, scramble wire name, and rewrite all affected gate inputs/outputs
+	//
+	// directly work on data.netlist.wires data, which is restored later on
+	//
+	if (scramble) {
+
+		for (auto& wire : data.netlist.wires) {
+			std::string orig_name;
+
+			// memorize old, original name
+			orig_name = std::move(wire);
+
+			// replace with new random name
+			wire = Randomize::randName(random_names_already_taken);
+
+			// also rewrite all affected gate inputs/outputs
+			for (auto& gate : data.netlist.gates) {
+
+				for (auto& input : gate.inputs) {
+					if (input.second == orig_name) {
+						input.second = wire;
+					}
+				}
+
+				for (auto& output : gate.outputs) {
+					if (output.second == orig_name) {
+						output.second = wire;
+					}
+				}
+			}
+		}
+
+		// finally, also shuffle order of wires
+		std::random_shuffle(data.netlist.wires.begin(), data.netlist.wires.end());
+
+		// log note on scrambled wires
+		out << "// wire names and their order is scrambled" << std::endl;
+	}
+	// output wires, scrambled or not
 	for (auto const& wire : data.netlist.wires) {
 		out << "wire " << wire << ";" << std::endl;
 	}
 	out << std::endl;
 
-	// output all gates 
+	// if needed, restore original wires
+	if (scramble) {
+		data.netlist.wires = std::move(wires);
+	}
+
+	// if needed, scramble gates names
+	//
+	// directly work on data.netlist.gates data, which is restored later on
+	if (scramble) {
+
+		for (auto& gate : data.netlist.gates) {
+			gate.name = Randomize::randName(random_names_already_taken);
+		}
+
+		// also shuffle order of gates
+		std::random_shuffle(data.netlist.gates.begin(), data.netlist.gates.end());
+
+		// log note on scrambled gates
+		out << "// gate names and their order is scrambled" << std::endl;
+	}
+
+	// output gates, scrambled or not
 	for (auto const& gate: data.netlist.gates) {
 		unsigned outputs_remaining = gate.outputs.size();
 		unsigned inputs_remaining = gate.inputs.size();
@@ -821,12 +922,17 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 
 		out << ");" << std::endl;
 	}
-
 	out << std::endl;
+
+	// if needed, restore original gates
+	if (scramble) {
+		data.netlist.gates = std::move(gates);
+	}
+
 	out << "endmodule" << std::endl;
 
 	out.close();
 
-	std::cout << "Randomize> Done" << std::endl;
+	std::cout << "Randomize>  Done" << std::endl;
 	std::cout << "Randomize>" << std::endl;
 }
