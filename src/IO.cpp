@@ -735,7 +735,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations) 
 	out << "//" << std::endl;
 	out << std::endl;
 
-	out << "module " << data.netlist.module_name << " (" << std::endl;
+	out << "module " << data.netlist.module_name << "_rand (" << std::endl;
 
 	// output all inputs for module ports
 	for (auto const& input : data.netlist.inputs) {
