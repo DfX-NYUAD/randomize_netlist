@@ -54,7 +54,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	if (argc >= 10) {
 		data.parameters.HD_sampling_iterations = std::stoi(argv[9]);
 	}
-	if (argc >= 10) {
+	if (argc >= 11) {
 		std::string arg = argv[10];
 
 		if (arg == "1" || arg == "true") {
