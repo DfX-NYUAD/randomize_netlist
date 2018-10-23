@@ -48,7 +48,7 @@ int main (int argc, char** argv) {
 
 	// try to set locale
 	try {
-		std::cout.imbue(std::locale(Data::LOCALE));
+		std::cout.imbue(std::locale(std::string(Data::LOCALE).c_str()));
 	}
 	catch (std::runtime_error) {
 		std::cout << "IO>" << std::endl;

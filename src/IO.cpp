@@ -693,7 +693,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 
 	// try to set locale
 	try {
-		out.imbue(std::locale(Data::LOCALE));
+		out.imbue(std::locale(std::string(Data::LOCALE).c_str()));
 	}
 	catch (std::runtime_error) {
 		std::cout << "IO>" << std::endl;
