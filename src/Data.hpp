@@ -17,6 +17,9 @@ class Data {
 
 	// public data
 	public:
+		// the name of the binary; defined in IO::parseParametersFiles
+		std::string binary;
+
 		// locale for outputs
 		static const std::string LOCALE;
 

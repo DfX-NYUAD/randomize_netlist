@@ -14,6 +14,8 @@ class IO {
 
 	// private data, functions
 	private:
+		static void testFile(std::string const& file);
+		static void printHelp(Data const& data);
 
 	// constructors, destructors, if any non-implicit
 	private:
@@ -23,7 +25,6 @@ class IO {
 
 	// public data, functions
 	public:
-		static void testFile(std::string const& file);
 		static void parseParametersFiles(Data& data, int const& argc, char** argv);
 		static void parseCells(Data& data);
 		static void parseNetlist(Data& data);

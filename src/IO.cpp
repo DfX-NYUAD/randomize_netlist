@@ -5,31 +5,14 @@
 
 // parse program parameters and test files
 void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
+	int arg_index;
 
-	// print command-line parameters
+	// parse binary name
+	data.binary = argv[0];
+
+	// print help if not all mandatory parameters are provided
 	if (argc < 5) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions [also_output_scrambled_netlists [threads [intermediate_output_HD_step [HD_target [acceptance_ratio [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]]]]" << std::endl;
-		std::cout << "IO> " << std::endl;
-		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
-		std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
-		std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
-		std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
-		std::cout << "IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: " << data.parameters.also_output_scrambled_netlists << std::endl;
-		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
-		std::cout << "IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to ``HD_target''; default value: " << data.parameters.intermediate_output_HD_step << std::endl;
-		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
-		std::cout << "IO> Optional parameter ``acceptance_ratio'': Ratio for accepting some modification with inferior HD [0.0 - 1.0]; default value: " << data.parameters.acceptance_ratio << std::endl;
-		std::cout << "IO> Optional parameter ``sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
-		std::cout << "IO> Optional parameter ``consider_fanout'': when swapping outputs for a pair of gate, try to match the fan-out for those outputs; default value: " << data.parameters.consider_fanout << std::endl;
-		std::cout << "IO> Optional parameter ``consider_driving_strength'': when replacing the underlying cell type, try to keep the same driving strength; default value: " << data.parameters.consider_driving_strength << std::endl;
-		std::cout << "IO> Optional parameter ``random_op'': Integer code for the random operation to be applied; possible values: " << std::endl;
-		std::cout << "IO>  Replace underlying cell type: " << static_cast<unsigned>(Randomize::RandomOperation::ReplaceCell) << std::endl;
-		std::cout << "IO>  Swap outputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapOutputs) << std::endl;
-		std::cout << "IO>  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
-		std::cout << "IO>  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
-		std::cout << "IO>  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
-		std::cout << "IO>   Note that there's no default value for ``random_op'' -- in case this parameter is not provided, the above operations will be picked randomly" << std::endl;
-		std::cout << "IO> " << std::endl;
+		IO::printHelp(data);
 		exit(1);
 	}
 
@@ -39,76 +22,147 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	data.files.cells_outputs = argv[3];
 	data.files.cells_functions = argv[4];
 
-	// read in optional arguments
-	if (argc >= 6) {
-		std::string arg = argv[5];
-
-		if (arg == "1" || arg == "true") {
-			data.parameters.also_output_scrambled_netlists = true;
-		}
-		else if (arg == "0" || arg == "false") {
-			data.parameters.also_output_scrambled_netlists = false;
-		}
-		else {
-			std::cout << "IO> Provide a Boolean value for the optional parameter ``also_output_scrambled_netlists''; currently provided: \"";
-			std::cout << arg << "\"" << std::endl;
-			exit(1);
-		}
-	}
-	if (argc >= 7) {
-		data.parameters.threads = std::stoi(argv[6]);
-	}
-	if (argc >= 8) {
-		data.parameters.intermediate_output_HD_step = std::stod(argv[7]);
-	}
-	if (argc >= 9) {
-		data.parameters.HD_target = std::stod(argv[8]);
-	}
-	if (argc >= 10) {
-		data.parameters.acceptance_ratio = std::stod(argv[9]);
-	}
-	if (argc >= 11) {
-		data.parameters.HD_sampling_iterations = std::stoi(argv[10]);
-	}
-	if (argc >= 12) {
-		std::string arg = argv[11];
-
-		if (arg == "1" || arg == "true") {
-			data.parameters.consider_fanout = true;
-		}
-		else if (arg == "0" || arg == "false") {
-			data.parameters.consider_fanout = false;
-		}
-		else {
-			std::cout << "IO> Provide a Boolean value for the optional parameter ``consider_fanout''; currently provided: \"";
-			std::cout << arg << "\"" << std::endl;
-			exit(1);
-		}
-	}
-	if (argc >= 13) {
-		std::string arg = argv[12];
-
-		if (arg == "1" || arg == "true") {
-			data.parameters.consider_driving_strength = true;
-		}
-		else if (arg == "0" || arg == "false") {
-			data.parameters.consider_driving_strength = false;
-		}
-		else {
-			std::cout << "IO> Provide a Boolean value for the optional parameter ``consider_driving_strength''; currently provided: \"";
-			std::cout << arg << "\"" << std::endl;
-			exit(1);
-		}
-	}
-	if (argc == 14) {
-		data.parameters.random_op = std::stoi(argv[13]);
-	}
-
 	// test input files
 	IO::testFile(data.files.in_netlist);
 	IO::testFile(data.files.cells_inputs);
 	IO::testFile(data.files.cells_outputs);
 	IO::testFile(data.files.cells_functions);
+
+	// read in all optional arguments
+	//
+	arg_index = 5;
+	while (arg_index < argc) {
+
+		std::string arg_string = argv[arg_index];
+		size_t arg_start = arg_string.find('=');
+
+		// sanity check whether argument can be parsed
+		if ((arg_string != "--help") && (arg_start == std::string::npos)) {
+			std::cout << "IO> Error: the following argument cannot be parsed as optional parameter: \"" << arg_string << "\" -- make sure that the parameters are in the form of, e.g., --intermediate_output_HD_step=" << data.parameters.intermediate_output_HD_step << std::endl;
+			exit(1);
+		}
+
+		// now, decompose string into parameter and value
+		std::string parameter = arg_string.substr(0, arg_start);
+		std::string value = arg_string.substr(arg_start + 1);
+
+		if (IO::DBG) {
+			std::cout << "DBG> parameter: \"" << parameter << "\"" << std::endl;
+			std::cout << "DBG> value: \"" << value << "\"" << std::endl;
+		}
+
+		// try to interpret parameter
+		//
+		if (parameter == "--threads") {
+			try {
+				data.parameters.threads = std::stoi(value);
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO> Error: provide an integer value for the optional parameter ``threads''; currently provided: \"" << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--intermediate_output_HD_step") {
+			try {
+				data.parameters.intermediate_output_HD_step = std::stod(value);
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO> Error: provide a double value for the optional parameter ``intermediate_output_HD_step''; currently provided: \"" << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--HD_target") {
+			try {
+				data.parameters.HD_target = std::stod(value);
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO> Error: provide a double value for the optional parameter ``HD_target''; currently provided: \"" << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--acceptance_ratio") {
+			try {
+				data.parameters.acceptance_ratio = std::stod(value);
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO> Error: provide a double value for the optional parameter ``acceptance_ratio''; currently provided: \"" << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--HD_sampling_iterations") {
+			try {
+				data.parameters.HD_sampling_iterations = std::stoi(value);
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO> Error: provide an integer value for the optional parameter ``HD_sampling_iterations''; currently provided: \"" << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--random_op") {
+			try {
+				data.parameters.random_op = std::stoi(value);
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO> Error: provide an integer value for the optional parameter ``random_op''; currently provided: \"" << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		// Boolean parameters
+		else if (parameter == "--also_output_scrambled_netlists") {
+
+			if (value == "1" || value == "true") {
+				data.parameters.also_output_scrambled_netlists = true;
+			}
+			else if (value == "0" || value == "false") {
+				data.parameters.also_output_scrambled_netlists = false;
+			}
+			else {
+				std::cout << "IO> Error: provide a Boolean value for the optional parameter ``also_output_scrambled_netlists''; currently provided: \"";
+				std::cout << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--consider_fanout") {
+
+			if (value == "1" || value == "true") {
+				data.parameters.consider_fanout = true;
+			}
+			else if (value == "0" || value == "false") {
+				data.parameters.consider_fanout = false;
+			}
+			else {
+				std::cout << "IO> Error: provide a Boolean value for the optional parameter ``consider_fanout''; currently provided: \"";
+				std::cout << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		else if (parameter == "--consider_driving_strength") {
+			if (value == "1" || value == "true") {
+				data.parameters.consider_driving_strength = true;
+			}
+			else if (value == "0" || value == "false") {
+				data.parameters.consider_driving_strength = false;
+			}
+			else {
+				std::cout << "IO> Error: provide a Boolean value for the optional parameter ``consider_driving_strength''; currently provided: \"";
+				std::cout << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
+		// special parameter help
+		else if (parameter == "--help") {
+			IO::printHelp(data);
+			exit(1);
+		}
+		// finally, catch any unsupported parameter
+		else {
+			std::cout << "IO> Error: the following optional parameter is not supported: \"" << arg_string << "\" -- check your input and also call the binary without any parameters to obtain a help/overview" << std::endl;
+			exit(1);
+		}
+
+		// consider next argument
+		arg_index++;
+	}
 
 	std::cout << "IO> Parameter ``netlist.v'': " << data.files.in_netlist << std::endl;
 	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
@@ -119,7 +173,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
 	std::cout << "IO> Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
 	std::cout << "IO> Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
-	std::cout << "IO> Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
+	std::cout << "IO> Parameter ``HD_sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
 	std::cout << "IO> Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
 	std::cout << "IO> Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
 	std::cout << "IO> Parameter ``random_op'': " << data.parameters.random_op << std::endl;
@@ -131,6 +185,40 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO>  Randomly any of the above operation: " << Data::parameters::DEFAULT_RANDOM_OP << std::endl;
 	std::cout << "IO> " << std::endl;
 };
+
+void IO::printHelp(Data const& data) {
+	std::cout << "IO> Usage: " << data.binary << " netlist.v cells.inputs cells.outputs cells.functions [";
+	std::cout << "--also_output_scrambled_netlists=" << data.parameters.also_output_scrambled_netlists << " ";
+	std::cout << "--threads=" << data.parameters.threads << " ";
+	std::cout << "--intermediate_output_HD_step=" << data.parameters.intermediate_output_HD_step << " ";
+	std::cout << "--HD_target=" << data.parameters.HD_target << " ";
+	std::cout << "--acceptance_ratio=" << data.parameters.acceptance_ratio << " ";
+	std::cout << "--HD_sampling_iterations=" << data.parameters.HD_sampling_iterations << " ";
+	std::cout << "--consider_fanout=" << data.parameters.consider_fanout << " ";
+	std::cout << "--consider_driving_strength=" << data.parameters.consider_driving_strength << " ";
+	std::cout << "--random_op=" << data.parameters.random_op << "]" << std::endl;
+	std::cout << "IO> " << std::endl;
+	std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
+	std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
+	std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
+	std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
+	std::cout << "IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: " << data.parameters.also_output_scrambled_netlists << std::endl;
+	std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
+	std::cout << "IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to ``HD_target''; default value: " << data.parameters.intermediate_output_HD_step << std::endl;
+	std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
+	std::cout << "IO> Optional parameter ``acceptance_ratio'': Ratio for accepting some modification with inferior HD [0.0 - 1.0]; default value: " << data.parameters.acceptance_ratio << std::endl;
+	std::cout << "IO> Optional parameter ``HD_sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
+	std::cout << "IO> Optional parameter ``consider_fanout'': when swapping outputs for a pair of gate, try to match the fan-out for those outputs; default value: " << data.parameters.consider_fanout << std::endl;
+	std::cout << "IO> Optional parameter ``consider_driving_strength'': when replacing the underlying cell type, try to keep the same driving strength; default value: " << data.parameters.consider_driving_strength << std::endl;
+	std::cout << "IO> Optional parameter ``random_op'': Integer code for the random operation to be applied; possible values: " << std::endl;
+	std::cout << "IO>  Replace underlying cell type: " << static_cast<unsigned>(Randomize::RandomOperation::ReplaceCell) << std::endl;
+	std::cout << "IO>  Swap outputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapOutputs) << std::endl;
+	std::cout << "IO>  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
+	std::cout << "IO>  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
+	std::cout << "IO>  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
+	std::cout << "IO>   Note that there's no default value for ``random_op'' -- in case this parameter is not provided, the above operations will be picked randomly" << std::endl;
+	std::cout << "IO> " << std::endl;
+}
 
 void IO::testFile(std::string const& file) {
 	std::ifstream in;
@@ -752,7 +840,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	out << "// Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
 	out << "// Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
 	out << "// Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
-	out << "// Parameter ``sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
+	out << "// Parameter ``HD_sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
 	out << "// Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
 	out << "// Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
 	out << "// Parameter ``random_op'': " << data.parameters.random_op << std::endl;
