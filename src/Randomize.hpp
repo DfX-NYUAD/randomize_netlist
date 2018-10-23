@@ -24,8 +24,8 @@ class Randomize {
 				std::mutex& m
 			);
 		static unsigned constexpr TRIALS_LIMIT_FACTOR = 3;
-		static void randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist);
-		static void randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist& netlist);
+		static void randomizeHelperReplaceCell(std::unordered_map<std::string, Data::Cell> const& cells, bool consider_driving_strength, Data::Netlist& netlist);
+		static void randomizeHelperSwapOutputs(bool consider_fanout, Data::Netlist& netlist);
 		static void randomizeHelperSwapInputs(Data::Netlist& netlist);
 		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
 		static void randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist);

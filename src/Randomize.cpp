@@ -173,7 +173,7 @@ void Randomize::iteration(Data& data, double& HD) {
 
 		case Randomize::RandomOperation::ReplaceCell:
 			std::cout << "Randomize>   1) Replace underlying cell" << std::endl;
-			Randomize::randomizeHelperReplaceCell(data, netlist);
+			Randomize::randomizeHelperReplaceCell(data.cells, data.parameters.consider_driving_strength, netlist);
 			check_for_loops = false;
 			break;
 
@@ -295,7 +295,8 @@ void Randomize::iteration(Data& data, double& HD) {
 
 // 1) swap gate type / underlying cell
 //
-void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netlist) {
+// note that consider_driving_strength is passed by value / as copy; hence, data.parameters.consider_driving_strength is not affected/overwritten
+void Randomize::randomizeHelperReplaceCell(std::unordered_map<std::string, Data::Cell> const& cells, bool consider_driving_strength, Data::Netlist& netlist) {
 	bool found;
 	unsigned trials, trials_stop;
 	Data::Cell const* cell;
@@ -313,17 +314,17 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 	//
 	found = false;
 	trials = 0;
-	trials_stop = data.cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
+	trials_stop = cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found) {
 		trials++;
 
 		// break handler
 		if (trials == trials_stop) {
-			// so far the driving strength had to match;
+			// so far the driving strength might have had to match;
 			// but now, since many trials had already been done, drop that constraint, and reset trials counter
-			if (data.parameters.consider_driving_strength) {
-				data.parameters.consider_driving_strength = false;
+			if (consider_driving_strength) {
+				consider_driving_strength = false;
 				trials = 0;
 			}
 			// driving strength has been already ignored (for 2nd part of trials); still no suitable cell found; abort
@@ -333,13 +334,13 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 		}
 
 		// pick cell randomly
-		auto it = data.cells.begin();
-		std::advance(it, Randomize::rand(0, data.cells.size()));
+		auto it = cells.begin();
+		std::advance(it, Randomize::rand(0, cells.size()));
 		cell = &((it)->second);
 
 		// possibly consider driving strength, see also above
 		//
-		if (!data.parameters.consider_driving_strength || (data.parameters.consider_driving_strength && (cell->strength == gate.cell->strength))) {
+		if (!consider_driving_strength || (consider_driving_strength && (cell->strength == gate.cell->strength))) {
 
 			// should be a cell with same number of inputs/outputs
 			//
@@ -431,7 +432,9 @@ void Randomize::randomizeHelperReplaceCell(Data const& data, Data::Netlist& netl
 // 2) swap output connectivity:
 // 	select two outputs (of different gates), possibly with same fan-out degree
 // 	swap the output nets
-void Randomize::randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist& netlist) {
+//
+// note that consider_fanout is passed by value / as copy; hence, data.parameters.consider_fanout is not affected/overwritten
+void Randomize::randomizeHelperSwapOutputs(bool consider_fanout, Data::Netlist& netlist) {
 	bool found;
 	unsigned trials, trials_stop;
 
@@ -444,7 +447,7 @@ void Randomize::randomizeHelperSwapOutputs(bool& consider_fanout, Data::Netlist&
 
 		// break handler
 		if (trials == trials_stop) {
-			// so far the fan out had to match;
+			// so far the fan out might have had to match;
 			// but now, since many trials had already been done, drop that constraint, and reset trials counter
 			if (consider_fanout) {
 				consider_fanout = false;

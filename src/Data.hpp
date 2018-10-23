@@ -39,9 +39,7 @@ class Data {
 			// try to consider and keep the fan-outs when swapping outputs for a pair of gates
 			bool consider_fanout = false;
 			// try to keep the same driving strength when replacing the cell type;
-			// parsed in IO::parseParametersFiles
-			// can be overwritten in Randomize::randomizeHelperReplaceCell if needed
-			mutable bool consider_driving_strength = true;
+			bool consider_driving_strength = true;
 
 			// default is -1; pick operation randomly
 			static constexpr int DEFAULT_RANDOM_OP = -1;
