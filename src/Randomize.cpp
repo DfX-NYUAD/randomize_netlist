@@ -114,8 +114,10 @@ int main (int argc, char** argv) {
 			std::cout << "Randomize> Generate intermediate result #" << current_intermediate_output_HD_step << std::endl;
 			std::cout << "Randomize>" << std::endl;
 			IO::writeNetlist(data, HD, iter);
-			// also generate a scrambled version
-			IO::writeNetlist(data, HD, iter, true);
+			// if desired, also generate a scrambled version
+			if (data.parameters.also_output_scrambled_netlists) {
+				IO::writeNetlist(data, HD, iter, true);
+			}
 
 			current_intermediate_output_HD_step++;
 		}
@@ -137,8 +139,10 @@ int main (int argc, char** argv) {
 
 	// output final randomized netlist
 	IO::writeNetlist(data, HD, iter - 1);
-	// also generate a scrambled version
-	IO::writeNetlist(data, HD, iter - 1, true);
+	// if desired, also generate a scrambled version
+	if (data.parameters.also_output_scrambled_netlists) {
+		IO::writeNetlist(data, HD, iter - 1, true);
+	}
 
 	// also log runtime
 	std::chrono::duration<double> runtime = std::chrono::system_clock::now() - start_time;

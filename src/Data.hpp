@@ -25,6 +25,8 @@ class Data {
 		static const std::string STRINGS_GLOBAL_SINK;
 
 		struct parameters {
+			bool also_output_scrambled_netlists = false;
+
 			// threads
 			unsigned threads = 1;
 			// step size for HD to output/generate intermediate netlist result

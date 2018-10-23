@@ -8,12 +8,13 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// print command-line parameters
 	if (argc < 5) {
-		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions [threads [intermediate_output_HD_step [HD_target [acceptance_ratio [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]]]" << std::endl;
+		std::cout << "IO> Usage: " << argv[0] << " netlist.v cells.inputs cells.outputs cells.functions [also_output_scrambled_netlists [threads [intermediate_output_HD_step [HD_target [acceptance_ratio [sampling_iterations [consider_fanout [consider_driving_strength [random_op]]]]]]]]]" << std::endl;
 		std::cout << "IO> " << std::endl;
 		std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to be randomized" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
 		std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
+		std::cout << "IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: " << data.parameters.also_output_scrambled_netlists << std::endl;
 		std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
 		std::cout << "IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to ``HD_target''; default value: " << data.parameters.intermediate_output_HD_step << std::endl;
 		std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
@@ -40,22 +41,37 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 	// read in optional arguments
 	if (argc >= 6) {
-		data.parameters.threads = std::stoi(argv[5]);
+		std::string arg = argv[5];
+
+		if (arg == "1" || arg == "true") {
+			data.parameters.also_output_scrambled_netlists = true;
+		}
+		else if (arg == "0" || arg == "false") {
+			data.parameters.also_output_scrambled_netlists = false;
+		}
+		else {
+			std::cout << "IO> Provide a Boolean value for the optional parameter ``also_output_scrambled_netlists''; currently provided: \"";
+			std::cout << arg << "\"" << std::endl;
+			exit(1);
+		}
 	}
 	if (argc >= 7) {
-		data.parameters.intermediate_output_HD_step = std::stod(argv[6]);
+		data.parameters.threads = std::stoi(argv[6]);
 	}
 	if (argc >= 8) {
-		data.parameters.HD_target = std::stod(argv[7]);
+		data.parameters.intermediate_output_HD_step = std::stod(argv[7]);
 	}
 	if (argc >= 9) {
-		data.parameters.acceptance_ratio = std::stod(argv[8]);
+		data.parameters.HD_target = std::stod(argv[8]);
 	}
 	if (argc >= 10) {
-		data.parameters.HD_sampling_iterations = std::stoi(argv[9]);
+		data.parameters.acceptance_ratio = std::stod(argv[9]);
 	}
 	if (argc >= 11) {
-		std::string arg = argv[10];
+		data.parameters.HD_sampling_iterations = std::stoi(argv[10]);
+	}
+	if (argc >= 12) {
+		std::string arg = argv[11];
 
 		if (arg == "1" || arg == "true") {
 			data.parameters.consider_fanout = true;
@@ -69,8 +85,8 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 			exit(1);
 		}
 	}
-	if (argc >= 12) {
-		std::string arg = argv[11];
+	if (argc >= 13) {
+		std::string arg = argv[12];
 
 		if (arg == "1" || arg == "true") {
 			data.parameters.consider_driving_strength = true;
@@ -84,8 +100,8 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 			exit(1);
 		}
 	}
-	if (argc == 13) {
-		data.parameters.random_op = std::stoi(argv[12]);
+	if (argc == 14) {
+		data.parameters.random_op = std::stoi(argv[13]);
 	}
 
 	// test input files
@@ -98,6 +114,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
 	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	std::cout << "IO> Parameter ``also_output_scrambled_netlists'': " << data.parameters.also_output_scrambled_netlists << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
 	std::cout << "IO> Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
 	std::cout << "IO> Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
@@ -730,6 +747,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	out << "// Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
 	out << "// Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	out << "// Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	out << "// Parameter ``also_output_scrambled_netlists'': " << data.parameters.also_output_scrambled_netlists << std::endl;
 	out << "// Parameter ``threads'': " << data.parameters.threads << std::endl;
 	out << "// Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
 	out << "// Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
