@@ -615,7 +615,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 
 			// revise subsequent gates (sinks)
 			//
-// (TODO) for some reason, this quick access to all sinks had to been working in these sense that any modification "sink_input.second =
+// (TODO) for some reason, this quick access to all sinks had not been working in these sense that any modification "sink_input.second =
 // input_net" did not carry over ...
 //
 //			for (auto* sink : netlist.nodes[output.second].children) {
