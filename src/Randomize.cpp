@@ -867,7 +867,7 @@ void Randomize::evaluateHD(
 		// first, randomly assign the same bits to the input nodes in the original and the current graph
 		//
 		for (auto const& input : inputs) {
-			orig_nodes_copy[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
+			orig_nodes_copy[input].bit = nodes_copy[input].bit = static_cast<bool>(Randomize::rand(0, 2));
 
 			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_nodes_copy[input].bit << std::endl;
