@@ -934,6 +934,9 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 			std::cout << "DBG>  Evaluate Boolean assignments -- current graph index: " << index << std::endl;
 		}
 
+		// (TODO) according to valgrind --tool=callgrind this and the next step (node.index != index) require approx 15% of total
+		// runtime -- possible solution: sort nodes by indices, but then the access to nodes by name will become slower, so not good
+		// either ...
 		for (auto& node_iter : nodes) {
 			auto& node = node_iter.second;
 
@@ -1000,8 +1003,8 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 
 							// input pin may occur multiple times, replace all occurrence
 							//
-							input_pin_pos = function.find(input.first);
-							while (input_pin_pos != std::string::npos) {
+							input_pin_pos = 0;
+							while ((input_pin_pos = function.find(input.first, input_pin_pos)) != std::string::npos) {
 
 								//function.replace(
 								//		// replace input pin word
@@ -1029,8 +1032,9 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 										);
 								}
 
-								// determine next possible occurrence for this input pin
-								input_pin_pos = function.find(input.first);
+								// update start position -- after replacing the input pin with its one-bit
+								// assignment, the search should continue right after that bit
+								input_pin_pos++;
 							}
 
 							if (Randomize::DBG_VERBOSE) {
