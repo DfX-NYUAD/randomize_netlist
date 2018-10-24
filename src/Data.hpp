@@ -132,6 +132,8 @@ class Data {
 			std::vector<std::string> wires;
 			// gates
 			std::vector<Gate> gates;
+			// assignments; mapping: PO sink, PI source
+			std::unordered_map<std::string, std::string> assignments;
 
 			// graph container
 			// mapping: name, node

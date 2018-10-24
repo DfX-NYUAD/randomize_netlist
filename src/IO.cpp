@@ -499,16 +499,16 @@ void IO::parseNetlist(Data& data) {
 			data.netlist.module_name = tmpstr;
 		}
 	}
-	
-	// reset file handler
-	in.clear() ;
-	in.seekg(0, in.beg);
 
 	// dbg log
 	//
 	if (IO::DBG) {
 		std::cout << "IO_DBG> Print module name: " << data.netlist.module_name << std::endl;
 	}
+	
+	// reset file handler
+	in.clear() ;
+	in.seekg(0, in.beg);
 
 	// 1) parse inputs, line by line
 	//
@@ -532,10 +532,6 @@ void IO::parseNetlist(Data& data) {
 			data.netlist.inputs.emplace_back(tmpstr);
 		}
 	}
-	
-	// reset file handler
-	in.clear() ;
-	in.seekg(0, in.beg);
 
 	// dbg log
 	//
@@ -549,6 +545,10 @@ void IO::parseNetlist(Data& data) {
 			std::cout << std::endl;
 		}
 	}
+	
+	// reset file handler
+	in.clear() ;
+	in.seekg(0, in.beg);
 
 	// 2) parse outputs, line by line
 	//
@@ -572,10 +572,6 @@ void IO::parseNetlist(Data& data) {
 			data.netlist.outputs.emplace_back(tmpstr);
 		}
 	}
-	
-	// reset file handler
-	in.clear() ;
-	in.seekg(0, in.beg);
 
 	// dbg log
 	//
@@ -589,6 +585,10 @@ void IO::parseNetlist(Data& data) {
 			std::cout << std::endl;
 		}
 	}
+	
+	// reset file handler
+	in.clear() ;
+	in.seekg(0, in.beg);
 
 	// 3) parse wires, line by line
 	//
@@ -613,10 +613,6 @@ void IO::parseNetlist(Data& data) {
 		}
 	}
 
-	// reset file handler
-	in.clear() ;
-	in.seekg(0, in.beg);
-
 	// dbg log
 	//
 	if (IO::DBG) {
@@ -629,6 +625,10 @@ void IO::parseNetlist(Data& data) {
 			std::cout << std::endl;
 		}
 	}
+
+	// reset file handler
+	in.clear() ;
+	in.seekg(0, in.beg);
 
 	// 4) parse gates, line by line
 	//
@@ -735,9 +735,6 @@ void IO::parseNetlist(Data& data) {
 		}
 	}
 
-	// finally, close file
-	in.close();
-
 	// dbg log
 	//
 	if (IO::DBG) {
@@ -762,12 +759,62 @@ void IO::parseNetlist(Data& data) {
 			std::cout << std::endl;
 		}
 	}
+	
+	// reset file handler
+	in.clear() ;
+	in.seekg(0, in.beg);
+
+	// 5) parse assignments, if any, line by line
+	//
+	while (std::getline(in, line)) {
+
+		// skip all the irrelevant lines
+		if (!(line.find("assign") != std::string::npos && line.find(";") != std::string::npos)) {
+			continue;
+		}
+		// process all the relevant lines
+		else {
+			std::istringstream linestream(line);
+			std::string PO, PI;
+
+			// drop "assign";
+			linestream >> tmpstr;
+
+			// parse the PO name
+			linestream >> PO;
+
+			// drop "=";
+			linestream >> tmpstr;
+
+			// parse the PI name
+			linestream >> PI;
+
+			data.netlist.assignments.insert( std::make_pair(PO, PI) );
+		}
+	}
+
+	// dbg log
+	//
+	if (IO::DBG) {
+
+		std::cout << "IO_DBG> Print all assignments: " << std::endl;
+
+		for (auto const& assignment : data.netlist.assignments) {
+
+			std::cout << "IO_DBG>  \"" << assignment.first << "\" = \"" << assignment.second << "\"";
+			std::cout << std::endl;
+		}
+	}
+
+	// finally, close file
+	in.close();
 
 	std::cout << "IO> Done" << std::endl;
 	std::cout << "IO>  Input ports: " << data.netlist.inputs.size() << std::endl;
 	std::cout << "IO>  Output ports: " << data.netlist.outputs.size() << std::endl;
 	std::cout << "IO>  Wires: " << data.netlist.wires.size() << std::endl;
 	std::cout << "IO>  Gates: " << data.netlist.gates.size() << std::endl;
+	std::cout << "IO>  PI-to-PO assignments: " << data.netlist.assignments.size() << std::endl;
 	std::cout << "IO> " << std::endl;
 
 	// sanity checks
@@ -980,6 +1027,17 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	if (scramble) {
 		data.netlist.wires = std::move(wires);
 	}
+
+	// output all assignments
+	if (scramble) {
+		out << "// assignments and their order remain as is; they are not scrambled" << std::endl;
+	}
+	out << "// assignments are not randomized as of now; they are copied from the input netlist as is" << std::endl;
+	out << "// assignments are also not considered for HD evaluation as of now, so not randomizing them does not impact the HD results" << std::endl;
+	for (auto const& assignment : data.netlist.assignments) {
+		out << "assign " << assignment.first << " = " << assignment.second << " ;" << std::endl;
+	}
+	out << std::endl;
 
 	// if needed, scramble gates names
 	//
