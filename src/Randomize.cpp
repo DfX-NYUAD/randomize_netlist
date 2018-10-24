@@ -1500,7 +1500,6 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 }
 
 void Randomize::determGraphOrder(Data::Netlist const& netlist) {
-	int max_index;
 
 	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Determining the graph order, in ascending order from global source to global sink ..." << std::endl;
@@ -1510,14 +1509,13 @@ void Randomize::determGraphOrder(Data::Netlist const& netlist) {
 	netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second.index = 0;
 
 	// recursively handle all node, starting from global source
-	max_index = 0;
-	Randomize::determGraphOrderRec( &(netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second), max_index );
+	Randomize::determGraphOrderRec(&(netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second));
 
 	// also memorize topology/indices separately
 	//
 	// reset and allocate topology vector
 	netlist.topology.clear();
-	for (int i = 0; i <= max_index; i++) {
+	for (int i = 0; i < netlist.nodes.find(Data::STRINGS_GLOBAL_SINK)->second.index; i++) {
 		netlist.topology.emplace_back( std::vector<Data::Node const*>() );
 	}
 	// now memorize all nodes encoded by their index
@@ -1581,16 +1579,13 @@ void Randomize::determGraphOrder(Data::Netlist const& netlist) {
 	}
 }
 
-void Randomize::determGraphOrderRec(Data::Node const* node, int& max_index) {
+void Randomize::determGraphOrderRec(Data::Node const* node) {
 
 	// derive index for current node from maximum among parents
 	//
 	for (auto const* parent : node->parents) {
 		node->index = std::max(node->index, parent->index + 1);
 	}
-
-	// also keep track of global max index
-	max_index = std::max(max_index, node->index);
 	
 	if (Randomize::DBG_VERBOSE) {
 
@@ -1619,7 +1614,7 @@ void Randomize::determGraphOrderRec(Data::Node const* node, int& max_index) {
 				std::cout << "DBG>  Depth-first traversal of graph; continue with child of node: " << node->name << std::endl;
 			}
 
-			Randomize::determGraphOrderRec(child, max_index);
+			Randomize::determGraphOrderRec(child);
 		}
 	}
 	
