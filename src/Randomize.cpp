@@ -917,6 +917,9 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 }
 
 void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes) {
+	bool output_found;
+	std::string function;
+	size_t input_pin_pos;
 
 	// index by index, propagate these random inputs through the whole netlist/graph; note that walking over linked graph could not
 	// guarantee that the Boolean value of the parents is already computed, that can only be achieved when considering the indices
@@ -965,7 +968,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 				}
 
 				// check among all outputs of the gate
-				bool output_found = false;
+				output_found = false;
 				for (auto const& output : gate->outputs) {
 
 					if (output.second == node.name) {
@@ -981,7 +984,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 						output_found = true;
 
 						// copy Boolean function string
-						std::string function = gate->cell->functions.find(output.first)->second;
+						function = gate->cell->functions.find(output.first)->second;
 
 						if (Randomize::DBG_VERBOSE) {
 							std::cout << "DBG>     Output function: " << function << std::endl;
@@ -992,15 +995,38 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 						for (auto const& input : gate->inputs) {
 
 							// input pin may occur multiple times, replace all occurrence
-							while (function.find(input.first) != std::string::npos) {
+							//
+							input_pin_pos = function.find(input.first);
+							while (input_pin_pos != std::string::npos) {
 
-								function.replace(
-										// replace input pin word
-										function.find(input.first), input.first.length(),
-										// Boolean value of related node; the node name is captured in the
-										// input of the gate
-										std::to_string(nodes[input.second].bit)
-									);
+								//function.replace(
+								//		// replace input pin word
+								//		input_pin_pos, input.first.length(),
+								//		// Boolean value of related node; the node name is captured in the
+								//		// input of the gate
+								//		std::to_string(nodes[input.second].bit)
+								//	);
+								//
+								// avoid repetitive use of std::to_string, just use hard-coded strings
+								if (nodes[input.second].bit) {
+									function.replace(
+											// replace input pin word
+											input_pin_pos, input.first.length(),
+											// Boolean value of related node
+											"1"
+										);
+								}
+								else {
+									function.replace(
+											// replace input pin word
+											input_pin_pos, input.first.length(),
+											// Boolean value of related node
+											"0"
+										);
+								}
+
+								// determine next possible occurrence for this input pin
+								input_pin_pos = function.find(input.first);
 							}
 
 							if (Randomize::DBG_VERBOSE) {
@@ -1036,6 +1062,9 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 }
 
 bool Randomize::evaluateString(std::string function) {
+	size_t pos_begin, pos_end;
+	bool substring;
+	int inverted_bits;
 
 	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Boolean (sub-)string to evaluate: \"" << function << "\"" << std::endl;
@@ -1045,8 +1074,8 @@ bool Randomize::evaluateString(std::string function) {
 	//
 	while (function.find('(') != std::string::npos) {
 
-		size_t pos_begin = function.find_last_of('(');
-		size_t pos_end = function.find_first_of(')', pos_begin);
+		pos_begin = function.find_last_of('(');
+		pos_end = function.find_first_of(')', pos_begin);
 
 		//if (Randomize::DBG_VERBOSE) {
 		//	std::cout << "DBG> pos_begin: " << pos_begin << std::endl;
@@ -1054,7 +1083,7 @@ bool Randomize::evaluateString(std::string function) {
 		//	std::cout << "DBG> substring before recursion: " << function.substr(pos_begin + 1, pos_end - pos_begin - 1) << std::endl;
 		//}
 
-		bool substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1));
+		substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1));
 
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Result: " << substring << std::endl;
@@ -1065,7 +1094,16 @@ bool Randomize::evaluateString(std::string function) {
 		//}
 
 		// after returning from recursion, replace the substring with its Boolean value
-		function.replace(pos_begin, pos_end - pos_begin + 1, std::to_string(substring));
+		//
+		//function.replace(pos_begin, pos_end - pos_begin + 1, std::to_string(substring));
+		//
+		// avoid repetitive use of std::to_string, just use hard-coded strings
+		if (substring) {
+			function.replace(pos_begin, pos_end - pos_begin + 1, "1");
+		}
+		else {
+			function.replace(pos_begin, pos_end - pos_begin + 1, "0");
+		}
 
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Modified Boolean (sub-)string after evaluation: \"" << function << "\"" << std::endl;
@@ -1088,97 +1126,293 @@ bool Randomize::evaluateString(std::string function) {
 		else if (function == "!0") {
 			return true;
 		}
-		else if (function == "~1") {
-			return false;
-		}
-		else if (function == "~0") {
-			return true;
-		}
+		// "~" notation not expected as of now; also not considered further below
+		//
+		//else if (function == "~1") {
+		//	return false;
+		//}
+		//else if (function == "~0") {
+		//	return true;
+		//}
 		else {
 			std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
 			return false;
 		}
 	}
-	// longer, more complex substring; should be "A OP B"
+	// longer, more complex substring; should be "A OPERATOR B"
+	//
+	// implemented in look-up table manner, more efficient than again decomposing string and handling sub-strings separately
 	else {
-		std::string token_a, token_b, token_op;
-		bool a, b;
+		// "|", OR 
+		if (function.find('|') != std::string::npos) {
 
-		// first, extract the expected three string tokens
-		//
-		std::istringstream stream(function);
-		stream >> token_a;
-		stream >> token_op;
-		stream >> token_b;
+			// determine the number of inverted bits
+			inverted_bits = std::count(function.begin(), function.end(), '!');
 
-		// second, try to interpret the operands
-		//
-		if (token_a == "1") {
-			a = true;
+			switch (inverted_bits) {
+
+				// regular bits, none inverted
+				case 0:
+					if (function == "0 | 0") {
+						return false;
+					}
+					else if (function == "0 | 1") {
+						return true;
+					}
+					else if (function == "1 | 0") {
+						return true;
+					}
+					else if (function == "1 | 1") {
+						return true;
+					}
+					// OR operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// one bit inverted
+				case 1:
+					// A inverted
+					if (function == "!0 | 0") {
+						return true;
+					}
+					else if (function == "!0 | 1") {
+						return true;
+					}
+					else if (function == "!1 | 0") {
+						return false;
+					}
+					else if (function == "!1 | 1") {
+						return true;
+					}
+					// B inverted
+					else if (function == "0 | !0") {
+						return true;
+					}
+					else if (function == "0 | !1") {
+						return false;
+					}
+					else if (function == "1 | !0") {
+						return true;
+					}
+					else if (function == "1 | !1") {
+						return true;
+					}
+					// OR operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// both bits inverted
+				case 2:
+					// A and B inverted
+					if (function == "!0 | !0") {
+						return true;
+					}
+					else if (function == "!0 | !1") {
+						return true;
+					}
+					else if (function == "!1 | !0") {
+						return true;
+					}
+					else if (function == "!1 | !1") {
+						return false;
+					}
+					// OR operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// OR operation with some bit inversion error
+				default:
+					std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+					return false;
+			}
 		}
-		else if (token_a == "0") {
-			a = false;
+		// "&", AND
+		else if (function.find('&') != std::string::npos) {
+
+			// determine the number of inverted bits
+			inverted_bits = std::count(function.begin(), function.end(), '!');
+
+			switch (inverted_bits) {
+
+				// regular bits, none inverted
+				case 0:
+					if (function == "0 & 0") {
+						return false;
+					}
+					else if (function == "0 & 1") {
+						return false;
+					}
+					else if (function == "1 & 0") {
+						return false;
+					}
+					else if (function == "1 & 1") {
+						return true;
+					}
+					// AND operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// one bit inverted
+				case 1:
+					// A inverted
+					if (function == "!0 & 0") {
+						return false;
+					}
+					else if (function == "!0 & 1") {
+						return true;
+					}
+					else if (function == "!1 & 0") {
+						return false;
+					}
+					else if (function == "!1 & 1") {
+						return false;
+					}
+					// B inverted
+					else if (function == "0 & !0") {
+						return false;
+					}
+					else if (function == "0 & !1") {
+						return false;
+					}
+					else if (function == "1 & !0") {
+						return true;
+					}
+					else if (function == "1 & !1") {
+						return false;
+					}
+					// AND operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// both bits inverted
+				case 2:
+					// A and B inverted
+					if (function == "!0 & !0") {
+						return true;
+					}
+					else if (function == "!0 & !1") {
+						return false;
+					}
+					else if (function == "!1 & !0") {
+						return false;
+					}
+					else if (function == "!1 & !1") {
+						return false;
+					}
+					// AND operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// AND operation with some bit inversion error
+				default:
+					std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+					return false;
+			}
 		}
-		else if (token_a == "!1") {
-			a = false;
+		// "^", XOR
+		else if (function.find('^') != std::string::npos) {
+
+			// determine the number of inverted bits
+			inverted_bits = std::count(function.begin(), function.end(), '!');
+
+			switch (inverted_bits) {
+
+				// regular bits, none inverted
+				case 0:
+					if (function == "0 ^ 0") {
+						return false;
+					}
+					else if (function == "0 ^ 1") {
+						return true;
+					}
+					else if (function == "1 ^ 0") {
+						return true;
+					}
+					else if (function == "1 ^ 1") {
+						return false;
+					}
+					// XOR operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// one bit inverted
+				case 1:
+					// A inverted
+					if (function == "!0 ^ 0") {
+						return true;
+					}
+					else if (function == "!0 ^ 1") {
+						return false;
+					}
+					else if (function == "!1 ^ 0") {
+						return false;
+					}
+					else if (function == "!1 ^ 1") {
+						return true;
+					}
+					// B inverted
+					else if (function == "0 ^ !0") {
+						return true;
+					}
+					else if (function == "0 ^ !1") {
+						return false;
+					}
+					else if (function == "1 ^ !0") {
+						return false;
+					}
+					else if (function == "1 ^ !1") {
+						return true;
+					}
+					// XOR operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// both bits inverted
+				case 2:
+					// A and B inverted
+					if (function == "!0 ^ !0") {
+						return false;
+					}
+					else if (function == "!0 ^ !1") {
+						return true;
+					}
+					else if (function == "!1 ^ !0") {
+						return true;
+					}
+					else if (function == "!1 ^ !1") {
+						return false;
+					}
+					// XOR operation with some error
+					else {
+						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+						return false;
+					}
+
+				// XOR operation with some bit inversion error
+				default:
+					std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+					return false;
+			}
 		}
-		else if (token_a == "!0") {
-			a = true;
-		}
-		else if (token_a == "~1") {
-			a = false;
-		}
-		else if (token_a == "~0") {
-			a = true;
-		}
+		// unknown operator
 		else {
-			std::cout << "Randomize> Error -- the following Boolean operand could not be parsed correctly: \"" << token_a << "\"" << std::endl;
-			a = false;
-		}
-		if (token_b == "1") {
-			b = true;
-		}
-		else if (token_b == "0") {
-			b = false;
-		}
-		else if (token_b == "!1") {
-			b = false;
-		}
-		else if (token_b == "!0") {
-			b = true;
-		}
-		else if (token_b == "~1") {
-			b = false;
-		}
-		else if (token_b == "~0") {
-			b = true;
-		}
-		else {
-			std::cout << "Randomize> Error -- the following Boolean operand could not be parsed correctly: \"" << token_b << "\"" << std::endl;
-			b = false;
-		}
-
-		// sanity check, stringstream should be empty by now 
-		if (!stream.eof()) {
 			std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
-			std::cout << "Randomize>  The following interpretation applies:" << std::endl;
-			std::cout << "Randomize>   Operand a: \"" << a << "\"" << std::endl;
-			std::cout << "Randomize>   Operation: \"" << token_op << "\"" << std::endl;
-			std::cout << "Randomize>   Operand b: \"" << b << "\"" << std::endl;
-		}
-
-		if (token_op == "|") {
-			return (a | b);
-		}
-		else if (token_op == "&") {
-			return (a & b);
-		}
-		else if (token_op == "^") {
-			return (a ^ b);
-		}
-		// sanity check for operation
-		else {
-			std::cout << "Randomize> Error -- the following Boolean operation could not be parsed correctly: \"" << token_op << "\"" << std::endl;
 			return false;
 		}
 	}
