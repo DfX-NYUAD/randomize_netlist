@@ -1547,14 +1547,17 @@ void Randomize::determGraphOrder(Data::Netlist const& netlist) {
 	for (auto const& node_iter : netlist.nodes) {
 		auto const* node = &(node_iter.second);
 
-		netlist.topology[node->index].emplace_back(node);
+		// sanity check for bounds
+		if ((node->index >= 0) && (node->index < static_cast<int>(netlist.topology.size()))) {
+			netlist.topology[node->index].emplace_back(node);
+		}
 	}
 
 	// dbg log
 	//
 	if (Randomize::DBG_VERBOSE) {
 
-		std::cout << "DBG> Print netlist graph: " << std::endl;
+		std::cout << "DBG> Print topology of netlist graph: " << std::endl;
 
 		for (unsigned i = 0; i < netlist.topology.size(); i++) {
 			for (auto const* node : netlist.topology[i]) {
