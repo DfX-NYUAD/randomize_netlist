@@ -34,7 +34,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	while (arg_index < argc) {
 
 		std::string arg_string = argv[arg_index];
-		size_t arg_start = arg_string.find('=');
+		std::string::size_type arg_start = arg_string.find('=');
 
 		// sanity check whether argument can be parsed
 		if ((arg_string != "--help") && (arg_start == std::string::npos)) {
@@ -253,7 +253,7 @@ void IO::parseCells(Data& data) {
 
 		// also memorize type and driving strength separately
 		// presume that driving strength comes after '_'
-		size_t driving_strength = cell.type.find('_');
+		std::string::size_type driving_strength = cell.type.find('_');
 		if (driving_strength != std::string::npos) {
 			cell.type_wo_strength = cell.type.substr(0, driving_strength);
 			cell.strength = cell.type.substr(driving_strength);
@@ -683,8 +683,8 @@ void IO::parseNetlist(Data& data) {
 
 					// memorize the output pin and the net/pins it's connected to
 					//
-					size_t pos_begin = line.find_last_of("(") + 1;
-					size_t pos_end = line.find_first_of(")");
+					std::string::size_type pos_begin = line.find_last_of("(") + 1;
+					std::string::size_type pos_end = line.find_first_of(")");
 
 					// remove heading/trailing whitespaces, if any, using stream operation
 					std::string connected;
@@ -706,8 +706,8 @@ void IO::parseNetlist(Data& data) {
 
 					// memorize the input pin and the net/pins it's connected to
 					//
-					size_t pos_begin = line.find_last_of("(") + 1;
-					size_t pos_end = line.find_first_of(")");
+					std::string::size_type pos_begin = line.find_last_of("(") + 1;
+					std::string::size_type pos_end = line.find_first_of(")");
 
 					// remove heading/trailing whitespaces, if any, using stream operation
 					std::string connected;

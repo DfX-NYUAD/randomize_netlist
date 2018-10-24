@@ -919,7 +919,7 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes) {
 	bool output_found;
 	std::string function;
-	size_t input_pin_pos;
+	std::string::size_type input_pin_pos;
 
 	// index by index, propagate these random inputs through the whole netlist/graph; note that walking over linked graph could not
 	// guarantee that the Boolean value of the parents is already computed, that can only be achieved when considering the indices
@@ -1070,7 +1070,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 }
 
 bool Randomize::evaluateString(std::string function) {
-	size_t pos_begin, pos_end;
+	std::string::size_type pos_begin, pos_end;
 	bool substring;
 	int inverted_bits;
 
