@@ -82,13 +82,13 @@ int main (int argc, char** argv) {
 
 	// for original graph, determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
-	Randomize::determGraphOrder(data.netlist.nodes);
+	Randomize::determGraphOrder(data.netlist);
 
 	// also back up original netlist separately, as data.netlist will be overwritten during the iterations below
 	data.netlist_original = data.netlist;
 	// re-run initGraph and determGraphOrder, since the underlying data is a copy
 	Randomize::initGraph(data.netlist_original);
-	Randomize::determGraphOrder(data.netlist_original.nodes);
+	Randomize::determGraphOrder(data.netlist_original);
 
 	// now, iteratively run random modifications on graph copies, until HD approaches desired value
 	//
@@ -230,7 +230,7 @@ void Randomize::iteration(Data& data, double& HD) {
 
 	// determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
-	Randomize::determGraphOrder(netlist.nodes);
+	Randomize::determGraphOrder(netlist);
 
 	std::cout << "Randomize>  Evaluating HD of modified netlist ..." << std::endl;
 
@@ -1499,17 +1499,33 @@ bool Randomize::checkGraphForCycles(Data::Node const* node) {
 	return false;
 }
 
-void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes) {
+void Randomize::determGraphOrder(Data::Netlist const& netlist) {
+	int max_index;
 
 	if (Randomize::DBG_VERBOSE) {
 		std::cout << "DBG> Determining the graph order, in ascending order from global source to global sink ..." << std::endl;
 	}
 
 	// global source has index 0 by definition
-	nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second.index = 0;
+	netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second.index = 0;
 
 	// recursively handle all node, starting from global source
-	Randomize::determGraphOrderRec(&(nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second));
+	max_index = 0;
+	Randomize::determGraphOrderRec( &(netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second), max_index );
+
+	// also memorize topology/indices separately
+	//
+	// reset and allocate topology vector
+	netlist.topology.clear();
+	for (int i = 0; i <= max_index; i++) {
+		netlist.topology.emplace_back( std::vector<Data::Node const*>() );
+	}
+	// now memorize all nodes encoded by their index
+	for (auto const& node_iter : netlist.nodes) {
+		auto const* node = &(node_iter.second);
+
+		netlist.topology[node->index].emplace_back(node);
+	}
 
 	// dbg log
 	//
@@ -1517,45 +1533,46 @@ void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node> con
 
 		std::cout << "DBG> Print netlist graph: " << std::endl;
 
-		for (auto const& node_iter : nodes) {
-			auto const& node = node_iter.second;
+		for (unsigned i = 0; i < netlist.topology.size(); i++) {
+			for (auto const* node : netlist.topology[i]) {
 
-			if (Randomize::DBG_VERBOSE) {
-				std::cout << "DBG>  \"" << node.name << "\":" << std::endl;
+				if (Randomize::DBG_VERBOSE) {
+					std::cout << "DBG>  \"" << node->name << "\":" << std::endl;
 
-				std::cout << "DBG>   Index: " << node.index << std::endl;
+					std::cout << "DBG>   Index: " << node->index << std::endl;
 
-				switch (node.type) {
-					case Data::Node::Type::Dummy :
-						std::cout << "DBG>   Type: Dummy" << std::endl;
-						break;
-					case Data::Node::Type::Wire :
-						std::cout << "DBG>   Type: Wire" << std::endl;
-						break;
-					case Data::Node::Type::Gate :
-						std::cout << "DBG>   Type: Gate" << std::endl;
-						break;
-					case Data::Node::Type::PI :
-						std::cout << "DBG>   Type: PI" << std::endl;
-						break;
-					case Data::Node::Type::PO :
-						std::cout << "DBG>   Type: PO" << std::endl;
-						break;
+					switch (node->type) {
+						case Data::Node::Type::Dummy :
+							std::cout << "DBG>   Type: Dummy" << std::endl;
+							break;
+						case Data::Node::Type::Wire :
+							std::cout << "DBG>   Type: Wire" << std::endl;
+							break;
+						case Data::Node::Type::Gate :
+							std::cout << "DBG>   Type: Gate" << std::endl;
+							break;
+						case Data::Node::Type::PI :
+							std::cout << "DBG>   Type: PI" << std::endl;
+							break;
+						case Data::Node::Type::PO :
+							std::cout << "DBG>   Type: PO" << std::endl;
+							break;
+					}
+
+					std::cout << "DBG>   Children [" << node->children.size() << "]:";
+					for (auto const* child : node->children) {
+						std::cout << " \"" << child->name << "\"";
+						std::cout << "; Index: " << child->index;
+					}
+					std::cout << std::endl;
+
+					std::cout << "DBG>   Parents [" << node->parents.size() << "]:";
+					for (auto const* parent : node->parents) {
+						std::cout << " \"" << parent->name << "\"";
+						std::cout << "; Index: " << parent->index;
+					}
+					std::cout << std::endl;
 				}
-
-				std::cout << "DBG>   Children [" << node.children.size() << "]:";
-				for (auto const* child : node.children) {
-					std::cout << " \"" << child->name << "\"";
-					std::cout << "; Index: " << child->index;
-				}
-				std::cout << std::endl;
-
-				std::cout << "DBG>   Parents [" << node.parents.size() << "]:";
-				for (auto const* parent : node.parents) {
-					std::cout << " \"" << parent->name << "\"";
-					std::cout << "; Index: " << parent->index;
-				}
-				std::cout << std::endl;
 			}
 		}
 
@@ -1564,13 +1581,16 @@ void Randomize::determGraphOrder(std::unordered_map<std::string, Data::Node> con
 	}
 }
 
-void Randomize::determGraphOrderRec(Data::Node const* node) {
+void Randomize::determGraphOrderRec(Data::Node const* node, int& max_index) {
 
 	// derive index for current node from maximum among parents
 	//
 	for (auto const* parent : node->parents) {
 		node->index = std::max(node->index, parent->index + 1);
 	}
+
+	// also keep track of global max index
+	max_index = std::max(max_index, node->index);
 	
 	if (Randomize::DBG_VERBOSE) {
 
@@ -1599,7 +1619,7 @@ void Randomize::determGraphOrderRec(Data::Node const* node) {
 				std::cout << "DBG>  Depth-first traversal of graph; continue with child of node: " << node->name << std::endl;
 			}
 
-			Randomize::determGraphOrderRec(child);
+			Randomize::determGraphOrderRec(child, max_index);
 		}
 	}
 	

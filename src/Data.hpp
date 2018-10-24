@@ -137,6 +137,10 @@ class Data {
 			// mapping: name, node
 			std::unordered_map<std::string, Data::Node> nodes;
 
+			// graph topology
+			// first dimension: topological index; second dimension: all nodes belonging to that index
+			mutable std::vector< std::vector<Data::Node const*> > topology;
+
 			// set of random names already taken
 			std::unordered_set<std::string> random_names_already_taken;
 		} netlist, netlist_original;

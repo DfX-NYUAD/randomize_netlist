@@ -30,7 +30,7 @@ class Randomize {
 		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
 		static void randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist);
 		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes);
-		static void determGraphOrderRec(Data::Node const* node);
+		static void determGraphOrderRec(Data::Node const* node, int& max_index);
 		static bool evaluateString(std::string function);
 
 		// random-number function
@@ -54,7 +54,7 @@ class Randomize {
 
 		static void iteration(Data& data, double& HD);
 		static void initGraph(Data::Netlist& netlist);
-		static void determGraphOrder(std::unordered_map<std::string, Data::Node> const& nodes);
+		static void determGraphOrder(Data::Netlist const& netlist);
 		static bool checkGraphForCycles(Data::Node const* node);
 
 		inline static std::string randName(std::unordered_set<std::string>& names_already_taken) {
