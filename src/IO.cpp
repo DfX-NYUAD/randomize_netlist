@@ -806,8 +806,19 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 		std::cout << "IO>" << std::endl;
 	}
 
-	// derive file name; assume that file type/suffice is 2 characters long (".v")
-	out_file = data.files.in_netlist.substr(0, data.files.in_netlist.length() - 2);
+	// derive output file name
+	//
+	// drop folder from input file
+	std::string::size_type start_pos = data.files.in_netlist.find_last_of('/');
+	// skip "/" character, if any
+	if (start_pos == std::string::npos) {
+		start_pos = 0;
+	}
+	else {
+		start_pos++;
+	}
+	// assume that file type/suffice is 2 characters long (".v")
+	out_file = data.files.in_netlist.substr(start_pos, data.files.in_netlist.length() - start_pos - 2);
 	out_file += "_rand_HD_";
 	out_file += std::to_string(HD);
 	if (scramble) {
