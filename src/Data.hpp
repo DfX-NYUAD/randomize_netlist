@@ -135,7 +135,7 @@ class Data {
 
 			// graph container
 			// mapping: name, node
-			std::unordered_map<std::string, Data::Node> nodes;
+			mutable std::unordered_map<std::string, Data::Node> nodes;
 
 			// graph topology
 			// first dimension: topological index; second dimension: all nodes belonging to that index

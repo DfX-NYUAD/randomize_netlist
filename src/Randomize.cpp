@@ -1506,16 +1506,16 @@ void Randomize::determGraphOrder(Data::Netlist const& netlist) {
 	}
 
 	// global source has index 0 by definition
-	netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second.index = 0;
+	netlist.nodes[Data::STRINGS_GLOBAL_SOURCE].index = 0;
 
 	// recursively handle all node, starting from global source
-	Randomize::determGraphOrderRec(&(netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE)->second));
+	Randomize::determGraphOrderRec(&(netlist.nodes[Data::STRINGS_GLOBAL_SOURCE]));
 
 	// also memorize topology/indices separately
 	//
 	// reset and allocate topology vector
 	netlist.topology.clear();
-	for (int i = 0; i < netlist.nodes.find(Data::STRINGS_GLOBAL_SINK)->second.index; i++) {
+	for (int i = 0; i < netlist.nodes[Data::STRINGS_GLOBAL_SINK].index; i++) {
 		netlist.topology.emplace_back( std::vector<Data::Node const*>() );
 	}
 	// now memorize all nodes encoded by their index
@@ -1738,7 +1738,7 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 
 	// connect graph based on connectivity of gates
 	for (auto const& gate : netlist.gates) {
-		auto const& gate_iter = netlist.nodes.find(gate.name);
+		auto& gate_node = netlist.nodes[gate.name];
 
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Gate: \"" << gate.name << "\"" << std::endl;
@@ -1748,7 +1748,7 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 		//
 		// gate.inputs: cell pin is key, pin/net name is value
 		for (auto const& input_iter : gate.inputs) {
-			auto const& node_iter = netlist.nodes.find(input_iter.second);
+			auto node_iter = netlist.nodes.find(input_iter.second);
 
 			if (Randomize::DBG_VERBOSE) {
 				std::cout << "DBG>   Input pin: \"" << input_iter.first << "\"" << std::endl;
@@ -1763,11 +1763,11 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 
 				// memorize the gate's node as child of the node
 				node_iter->second.children.emplace_back(
-						&(gate_iter->second)
+						&(gate_node)
 					);
 
 				// memorize the node as parent for the gate's node
-				gate_iter->second.parents.emplace_back(
+				gate_node.parents.emplace_back(
 						&(node_iter->second)
 					);
 			}
@@ -1796,13 +1796,13 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 				}
 
 				// memorize the node as child for the gate's node
-				gate_iter->second.children.emplace_back(
+				gate_node.children.emplace_back(
 						&(node_iter->second)
 					);
 
 				// memorize the gate's node as parent of the node
 				node_iter->second.parents.emplace_back(
-						&(gate_iter->second)
+						&(gate_node)
 					);
 			}
 			// there's no node matching; that means the pin is dangling
