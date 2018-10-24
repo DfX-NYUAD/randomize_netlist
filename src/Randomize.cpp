@@ -1515,7 +1515,7 @@ void Randomize::determGraphOrder(Data::Netlist const& netlist) {
 	//
 	// reset and allocate topology vector
 	netlist.topology.clear();
-	for (int i = 0; i < netlist.nodes[Data::STRINGS_GLOBAL_SINK].index; i++) {
+	for (int i = 0; i <= netlist.nodes[Data::STRINGS_GLOBAL_SINK].index; i++) {
 		netlist.topology.emplace_back( std::vector<Data::Node const*>() );
 	}
 	// now memorize all nodes encoded by their index
