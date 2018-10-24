@@ -244,7 +244,17 @@ void Randomize::iteration(Data& data, double& HD) {
 		// notes
 		// 1) pass nodes for original netlist and for local graph as copies, since the threads have to work on separate graph data 
 		// 2) HD will be summed up in the threads (using the mutex)
-		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist_original.nodes, netlist.nodes, std::ref(data.netlist_original.inputs), std::ref(data.netlist_original.outputs), std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
+		threads.emplace_back( std::thread(Randomize::evaluateHD,
+					data.netlist_original.nodes,
+					netlist.nodes,
+					std::ref(data.netlist_original.topology),
+					std::ref(netlist.topology),
+					std::ref(data.netlist_original.inputs),
+					std::ref(data.netlist_original.outputs),
+					std::ref(iterations_per_thread),
+					std::ref(HD_threads),
+					std::ref(m))
+				);
 	}
 
 	// join threads; the main thread execution will pause until all threads are done
@@ -828,6 +838,8 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 void Randomize::evaluateHD(
 	std::unordered_map<std::string, Data::Node> orig_nodes_copy,
 	std::unordered_map<std::string, Data::Node> nodes_copy,
+	std::vector< std::vector<Data::Node const*> > const& orig_nodes_topology,
+	std::vector< std::vector<Data::Node const*> > const& nodes_copy_topology,
 	std::vector<std::string> const& inputs,
 	std::vector<std::string> const& outputs,
 	unsigned const& iterations,
@@ -868,14 +880,14 @@ void Randomize::evaluateHD(
 			std::cout << "DBG> Evaluate original graph/netlist" << std::endl;
 		}
 
-		Randomize::evaluateHDHelper(orig_nodes_copy);
+		Randomize::evaluateHDHelper(orig_nodes_copy, orig_nodes_topology);
 
 		if (Randomize::DBG) {
 			std::cout << "DBG> Done" << std::endl;
 			std::cout << "DBG> Evaluate current graph/netlist" << std::endl;
 		}
 
-		Randomize::evaluateHDHelper(nodes_copy);
+		Randomize::evaluateHDHelper(nodes_copy, nodes_copy_topology);
 
 		if (Randomize::DBG) {
 			std::cout << "DBG> Done" << std::endl;
@@ -929,7 +941,7 @@ void Randomize::evaluateHD(
 	}
 }
 
-void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes) {
+void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology) {
 	bool output_found;
 	std::string function;
 	std::string::size_type input_pin_pos;
@@ -947,15 +959,15 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 			std::cout << "DBG>  Evaluate Boolean assignments -- current graph index: " << index << std::endl;
 		}
 
-		// (TODO) according to valgrind --tool=callgrind this and the next step (node.index != index) require approx 15% of total
-		// runtime -- possible solution: sort nodes by indices, but then the access to nodes by name will become slower, so not good
-		// either ...
-		for (auto& node_iter : nodes) {
-			auto& node = node_iter.second;
+		for (auto const* node_ptr : nodes_topology[index]) {
 
-			// consider only nodes with current index
+			// work directly on the node reference, not the node pointer from the topology
+			//
+			auto& node = nodes[node_ptr->name];
+
+			// sanity check for nodes with current index
 			if (node.index != index) {
-				continue;
+				std::cout << "Randomize> Error -- the following node has an unexpected index: \"" << node.name << "\"" << std::endl;
 			}
 
 			// sanity check to consider only wire/PO nodes

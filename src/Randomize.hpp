@@ -19,6 +19,8 @@ class Randomize {
 		static void evaluateHD(
 				std::unordered_map<std::string, Data::Node> orig_nodes_copy,
 				std::unordered_map<std::string, Data::Node> nodes_copy,
+				std::vector< std::vector<Data::Node const*> > const& orig_nodes_topology,
+				std::vector< std::vector<Data::Node const*> > const& nodes_copy_topology,
 				std::vector<std::string> const& inputs,
 				std::vector<std::string> const& outputs,
 				unsigned const& iterations,
@@ -31,7 +33,7 @@ class Randomize {
 		static void randomizeHelperSwapInputs(Data::Netlist& netlist);
 		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
 		static void randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist);
-		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes);
+		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology);
 		static void determGraphOrderRec(Data::Node const* node);
 		static bool evaluateString(std::string function);
 
