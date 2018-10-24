@@ -253,7 +253,8 @@ void Randomize::iteration(Data& data, double& HD) {
 					std::ref(data.netlist_original.outputs),
 					std::ref(iterations_per_thread),
 					std::ref(HD_threads),
-					std::ref(m))
+					std::ref(m),
+					std::ref(data.parameters.lazy_Boolean_evaluation))
 				);
 	}
 
@@ -844,7 +845,8 @@ void Randomize::evaluateHD(
 	std::vector<std::string> const& outputs,
 	unsigned const& iterations,
 	double& HD_threads,
-	std::mutex& m
+	std::mutex& m,
+	bool const& lazy_evaluation
 ) {
 	// HD for this call/thread
 	double HD_local;
@@ -880,14 +882,14 @@ void Randomize::evaluateHD(
 			std::cout << "DBG> Evaluate original graph/netlist" << std::endl;
 		}
 
-		Randomize::evaluateHDHelper(orig_nodes_copy, orig_nodes_topology);
+		Randomize::evaluateHDHelper(orig_nodes_copy, orig_nodes_topology, lazy_evaluation);
 
 		if (Randomize::DBG) {
 			std::cout << "DBG> Done" << std::endl;
 			std::cout << "DBG> Evaluate current graph/netlist" << std::endl;
 		}
 
-		Randomize::evaluateHDHelper(nodes_copy, nodes_copy_topology);
+		Randomize::evaluateHDHelper(nodes_copy, nodes_copy_topology, lazy_evaluation);
 
 		if (Randomize::DBG) {
 			std::cout << "DBG> Done" << std::endl;
@@ -941,7 +943,7 @@ void Randomize::evaluateHD(
 	}
 }
 
-void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology) {
+void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology, bool const& lazy_evaluation) {
 	bool output_found;
 	std::string function;
 	std::string::size_type input_pin_pos;
@@ -1070,7 +1072,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 						}
 
 						// evaluate Boolean value and assign to node
-						node.bit = Randomize::evaluateString(function);
+						node.bit = Randomize::evaluateString(function, lazy_evaluation);
 
 						if (Randomize::DBG_VERBOSE) {
 							std::cout << "DBG>      Final function value: " << node.bit << std::endl;
@@ -1094,7 +1096,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 	}
 }
 
-bool Randomize::evaluateString(std::string function) {
+bool Randomize::evaluateString(std::string function, bool const& lazy_evaluation) {
 	std::string::size_type pos_begin, pos_end;
 	bool substring;
 	int inverted_bits;
@@ -1116,7 +1118,7 @@ bool Randomize::evaluateString(std::string function) {
 		//	std::cout << "DBG> substring before recursion: " << function.substr(pos_begin + 1, pos_end - pos_begin - 1) << std::endl;
 		//}
 
-		substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1));
+		substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1), lazy_evaluation);
 
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Result: " << substring << std::endl;
@@ -1189,74 +1191,88 @@ bool Randomize::evaluateString(std::string function) {
 					if (function == "0 | 0") {
 						return false;
 					}
-					else if (function == "0 | 1") {
+					else if (lazy_evaluation) {
 						return true;
 					}
-					else if (function == "1 | 0") {
-						return true;
-					}
-					else if (function == "1 | 1") {
-						return true;
-					}
-					// OR operation with some error
 					else {
-						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
-						return false;
+						if (function == "0 | 1") {
+							return true;
+						}
+						else if (function == "1 | 0") {
+							return true;
+						}
+						else if (function == "1 | 1") {
+							return true;
+						}
+						// OR operation with some error
+						else {
+							std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+							return false;
+						}
 					}
 
 				// one bit inverted
 				case 1:
-					// A inverted
-					if (function == "!0 | 0") {
-						return true;
-					}
-					else if (function == "!0 | 1") {
-						return true;
-					}
-					else if (function == "!1 | 0") {
+					if (function == "!1 | 0") {
 						return false;
-					}
-					else if (function == "!1 | 1") {
-						return true;
-					}
-					// B inverted
-					else if (function == "0 | !0") {
-						return true;
 					}
 					else if (function == "0 | !1") {
 						return false;
 					}
-					else if (function == "1 | !0") {
+					else if (lazy_evaluation) {
 						return true;
 					}
-					else if (function == "1 | !1") {
-						return true;
-					}
-					// OR operation with some error
 					else {
-						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
-						return false;
+						// A inverted
+						if (function == "!0 | 0") {
+							return true;
+						}
+						else if (function == "!0 | 1") {
+							return true;
+						}
+						else if (function == "!1 | 1") {
+							return true;
+						}
+						// B inverted
+						else if (function == "0 | !0") {
+							return true;
+						}
+						else if (function == "1 | !0") {
+							return true;
+						}
+						else if (function == "1 | !1") {
+							return true;
+						}
+						// OR operation with some error
+						else {
+							std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+							return false;
+						}
 					}
 
 				// both bits inverted
 				case 2:
-					// A and B inverted
-					if (function == "!0 | !0") {
-						return true;
-					}
-					else if (function == "!0 | !1") {
-						return true;
-					}
-					else if (function == "!1 | !0") {
-						return true;
-					}
-					else if (function == "!1 | !1") {
+					if (function == "!1 | !1") {
 						return false;
 					}
-					// OR operation with some error
+					else if (lazy_evaluation) {
+						return true;
+					}
 					else {
-						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
-						return false;
+						if (function == "!0 | !0") {
+							return true;
+						}
+						else if (function == "!0 | !1") {
+							return true;
+						}
+						else if (function == "!1 | !0") {
+							return true;
+						}
+						// OR operation with some error
+						else {
+							std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+							return false;
+						}
 					}
 
 				// OR operation with some bit inversion error
@@ -1275,56 +1291,66 @@ bool Randomize::evaluateString(std::string function) {
 
 				// regular bits, none inverted
 				case 0:
-					if (function == "0 & 0") {
-						return false;
-					}
-					else if (function == "0 & 1") {
-						return false;
-					}
-					else if (function == "1 & 0") {
-						return false;
-					}
-					else if (function == "1 & 1") {
+					if (function == "1 & 1") {
 						return true;
 					}
-					// AND operation with some error
-					else {
-						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+					else if (lazy_evaluation) {
 						return false;
+					}
+					else {
+						if (function == "0 & 0") {
+							return false;
+						}
+						else if (function == "0 & 1") {
+							return false;
+						}
+						else if (function == "1 & 0") {
+							return false;
+						}
+						// AND operation with some error
+						else {
+							std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+							return false;
+						}
 					}
 
 				// one bit inverted
 				case 1:
-					// A inverted
-					if (function == "!0 & 0") {
-						return false;
-					}
-					else if (function == "!0 & 1") {
+					if (function == "!0 & 1") {
 						return true;
-					}
-					else if (function == "!1 & 0") {
-						return false;
-					}
-					else if (function == "!1 & 1") {
-						return false;
-					}
-					// B inverted
-					else if (function == "0 & !0") {
-						return false;
-					}
-					else if (function == "0 & !1") {
-						return false;
 					}
 					else if (function == "1 & !0") {
 						return true;
 					}
-					else if (function == "1 & !1") {
+					else if (lazy_evaluation) {
 						return false;
 					}
-					// AND operation with some error
 					else {
-						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
-						return false;
+						// A inverted
+						if (function == "!0 & 0") {
+							return false;
+						}
+						else if (function == "!1 & 0") {
+							return false;
+						}
+						else if (function == "!1 & 1") {
+							return false;
+						}
+						// B inverted
+						else if (function == "0 & !0") {
+							return false;
+						}
+						else if (function == "0 & !1") {
+							return false;
+						}
+						else if (function == "1 & !1") {
+							return false;
+						}
+						// AND operation with some error
+						else {
+							std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+							return false;
+						}
 					}
 
 				// both bits inverted
@@ -1333,19 +1359,24 @@ bool Randomize::evaluateString(std::string function) {
 					if (function == "!0 & !0") {
 						return true;
 					}
-					else if (function == "!0 & !1") {
+					else if (lazy_evaluation) {
 						return false;
 					}
-					else if (function == "!1 & !0") {
-						return false;
-					}
-					else if (function == "!1 & !1") {
-						return false;
-					}
-					// AND operation with some error
 					else {
-						std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
-						return false;
+						if (function == "!0 & !1") {
+							return false;
+						}
+						else if (function == "!1 & !0") {
+							return false;
+						}
+						else if (function == "!1 & !1") {
+							return false;
+						}
+						// AND operation with some error
+						else {
+							std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
+							return false;
+						}
 					}
 
 				// AND operation with some bit inversion error

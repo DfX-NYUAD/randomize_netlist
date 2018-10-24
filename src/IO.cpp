@@ -149,6 +149,19 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 				exit(1);
 			}
 		}
+		else if (parameter == "--lazy_Boolean_evaluation") {
+			if (value == "1" || value == "true") {
+				data.parameters.lazy_Boolean_evaluation = true;
+			}
+			else if (value == "0" || value == "false") {
+				data.parameters.lazy_Boolean_evaluation = false;
+			}
+			else {
+				std::cout << "IO> Error: provide a Boolean value for the optional parameter ``lazy_Boolean_evaluation''; currently provided: \"";
+				std::cout << value << "\"" << std::endl;
+				exit(1);
+			}
+		}
 		// special parameter help
 		else if (parameter == "--help") {
 			IO::printHelp(data);
@@ -174,6 +187,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
 	std::cout << "IO> Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
 	std::cout << "IO> Parameter ``HD_sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
+	std::cout << "IO> Parameter ``lazy_Boolean_evaluation'': " << data.parameters.lazy_Boolean_evaluation << std::endl;
 	std::cout << "IO> Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
 	std::cout << "IO> Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
 	std::cout << "IO> Parameter ``random_op'': " << data.parameters.random_op << std::endl;
@@ -194,6 +208,7 @@ void IO::printHelp(Data const& data) {
 	std::cout << "--HD_target=" << data.parameters.HD_target << " ";
 	std::cout << "--acceptance_ratio=" << data.parameters.acceptance_ratio << " ";
 	std::cout << "--HD_sampling_iterations=" << data.parameters.HD_sampling_iterations << " ";
+	std::cout << "--lazy_Boolean_evaluation=" << data.parameters.lazy_Boolean_evaluation << " ";
 	std::cout << "--consider_fanout=" << data.parameters.consider_fanout << " ";
 	std::cout << "--consider_driving_strength=" << data.parameters.consider_driving_strength << " ";
 	std::cout << "--random_op=" << data.parameters.random_op << "]" << std::endl;
@@ -208,6 +223,7 @@ void IO::printHelp(Data const& data) {
 	std::cout << "IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: " << data.parameters.HD_target << std::endl;
 	std::cout << "IO> Optional parameter ``acceptance_ratio'': Ratio for accepting some modification with inferior HD [0.0 - 1.0]; default value: " << data.parameters.acceptance_ratio << std::endl;
 	std::cout << "IO> Optional parameter ``HD_sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
+	std::cout << "IO> Optional parameter ``lazy_Boolean_evaluation'': if active, parsing of Boolean strings is short-cut whenever possible during the HD evaluation, but in case there are unsupported or erroneous parts in the Boolean strings, the parsing may provide wrong HD values -- it's recommend to use this feature only once at least one iteration with regular evaluation was tried; default value: " << data.parameters.lazy_Boolean_evaluation << std::endl;
 	std::cout << "IO> Optional parameter ``consider_fanout'': when swapping outputs for a pair of gate, try to match the fan-out for those outputs; default value: " << data.parameters.consider_fanout << std::endl;
 	std::cout << "IO> Optional parameter ``consider_driving_strength'': when replacing the underlying cell type, try to keep the same driving strength; default value: " << data.parameters.consider_driving_strength << std::endl;
 	std::cout << "IO> Optional parameter ``random_op'': Integer code for the random operation to be applied; possible values: " << std::endl;
@@ -899,6 +915,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	out << "// Parameter ``HD_target'': " << data.parameters.HD_target << std::endl;
 	out << "// Parameter ``acceptance_ratio'': " << data.parameters.acceptance_ratio << std::endl;
 	out << "// Parameter ``HD_sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
+	out << "// Parameter ``lazy_Boolean_evaluation'': " << data.parameters.lazy_Boolean_evaluation << std::endl;
 	out << "// Parameter ``consider_fanout'': " << data.parameters.consider_fanout << std::endl;
 	out << "// Parameter ``consider_driving_strength'': " << data.parameters.consider_driving_strength << std::endl;
 	out << "// Parameter ``random_op'': " << data.parameters.random_op << std::endl;

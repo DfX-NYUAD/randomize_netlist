@@ -46,6 +46,9 @@ class Data {
 			// try to keep the same driving strength when replacing the cell type;
 			bool consider_driving_strength = true;
 
+			// if active, Boolean evaluation is short-cut, but this can miss errors in Boolean strings
+			bool lazy_Boolean_evaluation = false;
+
 			// default is -1; pick operation randomly
 			static constexpr int DEFAULT_RANDOM_OP = -1;
 			int random_op = DEFAULT_RANDOM_OP;

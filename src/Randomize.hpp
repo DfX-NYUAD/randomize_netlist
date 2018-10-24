@@ -25,7 +25,8 @@ class Randomize {
 				std::vector<std::string> const& outputs,
 				unsigned const& iterations,
 				double& HD_threads,
-				std::mutex& m
+				std::mutex& m,
+				bool const& lazy_evaluation
 			);
 		static unsigned constexpr TRIALS_LIMIT_FACTOR = 3;
 		static void randomizeHelperReplaceCell(std::unordered_map<std::string, Data::Cell> const& cells, bool consider_driving_strength, Data::Netlist& netlist);
@@ -33,9 +34,9 @@ class Randomize {
 		static void randomizeHelperSwapInputs(Data::Netlist& netlist);
 		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
 		static void randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist);
-		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology);
+		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology, bool const& lazy_evaluation);
 		static void determGraphOrderRec(Data::Node const* node);
-		static bool evaluateString(std::string function);
+		static bool evaluateString(std::string function, bool const& lazy_evaluation);
 
 		// random-number function
 		//
