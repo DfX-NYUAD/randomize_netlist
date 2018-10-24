@@ -17,8 +17,10 @@ class Randomize {
 	// private data, functions
 	private:
 		static void evaluateHD(
-				Data::Netlist orig_netlist_copy,
+				std::unordered_map<std::string, Data::Node> orig_nodes_copy,
 				std::unordered_map<std::string, Data::Node> nodes_copy,
+				std::vector<std::string> const& inputs,
+				std::vector<std::string> const& outputs,
 				unsigned const& iterations,
 				double& HD_threads,
 				std::mutex& m

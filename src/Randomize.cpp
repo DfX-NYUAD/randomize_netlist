@@ -238,17 +238,22 @@ void Randomize::iteration(Data& data, double& HD) {
 	threads.reserve(data.parameters.threads);
 	unsigned const iterations_per_thread = std::ceil(static_cast<double>(data.parameters.HD_sampling_iterations) / data.parameters.threads);
 	double HD_threads = 0.0;
+
 	for (unsigned t = 0; t < data.parameters.threads; t++) {
-		// pass original netlist and local graph as copies, since the threads have to work on separate data sets
-		// HD will be summed up in the threads (using the mutex)
-		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist_original, netlist.nodes, std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
+
+		// notes
+		// 1) pass nodes for original netlist and for local graph as copies, since the threads have to work on separate graph data 
+		// 2) HD will be summed up in the threads (using the mutex)
+		threads.emplace_back( std::thread(Randomize::evaluateHD, data.netlist_original.nodes, netlist.nodes, std::ref(data.netlist_original.inputs), std::ref(data.netlist_original.outputs), std::ref(iterations_per_thread), std::ref(HD_threads), std::ref(m)) );
 	}
+
 	// join threads; the main thread execution will pause until all threads are done
 	for (std::thread& t : threads) {
 		t.join();
 	}
-	// clean up all threads
+	// once done, clean up all threads
 	threads.clear();
+
 	// normalize HD summed up across all threads
 	HD_threads /= data.parameters.threads;
 
@@ -820,7 +825,15 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 	}
 }
 
-void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<std::string, Data::Node> nodes_copy, unsigned const& iterations, double& HD_threads, std::mutex& m) {
+void Randomize::evaluateHD(
+	std::unordered_map<std::string, Data::Node> orig_nodes_copy,
+	std::unordered_map<std::string, Data::Node> nodes_copy,
+	std::vector<std::string> const& inputs,
+	std::vector<std::string> const& outputs,
+	unsigned const& iterations,
+	double& HD_threads,
+	std::mutex& m
+) {
 	// HD for this call/thread
 	double HD_local;
 	// HD for each iteration within this call/thread
@@ -841,11 +854,11 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 
 		// first, randomly assign the same bits to the input nodes in the original and the current graph
 		//
-		for (auto const& input : orig_netlist_copy.inputs) {
-			orig_netlist_copy.nodes[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
+		for (auto const& input : inputs) {
+			orig_nodes_copy[input].bit = nodes_copy[input].bit = Randomize::rand(0, 2);
 
 			if (Randomize::DBG_VERBOSE) {
-				std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_netlist_copy.nodes[input].bit << std::endl;
+				std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_nodes_copy[input].bit << std::endl;
 			}
 		}
 
@@ -855,7 +868,7 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 			std::cout << "DBG> Evaluate original graph/netlist" << std::endl;
 		}
 
-		Randomize::evaluateHDHelper(orig_netlist_copy.nodes);
+		Randomize::evaluateHDHelper(orig_nodes_copy);
 
 		if (Randomize::DBG) {
 			std::cout << "DBG> Done" << std::endl;
@@ -871,21 +884,21 @@ void Randomize::evaluateHD(Data::Netlist orig_netlist_copy, std::unordered_map<s
 		// third, evaluate HD
 		//
 		HD_curr_iter = 0.0;
-		for (auto const& output : orig_netlist_copy.outputs) {
+		for (auto const& output : outputs) {
 
-			if (orig_netlist_copy.nodes[output].bit != nodes_copy[output].bit) {
+			if (orig_nodes_copy[output].bit != nodes_copy[output].bit) {
 				HD_curr_iter++;
 			}
 
 			// dbg log of output bits
 			if (Randomize::DBG_VERBOSE) {
 
-				std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_netlist_copy.nodes[output].bit << std::endl;
+				std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_nodes_copy[output].bit << std::endl;
 				std::cout << "DBG>  Current graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
 			}
 		}
 		// HD of this current iteration
-		HD_curr_iter /= orig_netlist_copy.outputs.size();
+		HD_curr_iter /= outputs.size();
 
 		if (Randomize::DBG) {
 			std::cout << "DBG> HD for current iteration: " << HD_curr_iter << std::endl;
