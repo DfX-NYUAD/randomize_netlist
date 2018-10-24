@@ -830,7 +830,7 @@ void IO::parseNetlist(Data& data) {
 	std::cout << "IO>  Output ports: " << data.netlist.outputs.size() << std::endl;
 	std::cout << "IO>  Wires: " << data.netlist.wires.size() << std::endl;
 	std::cout << "IO>  Gates: " << data.netlist.gates.size() << std::endl;
-	std::cout << "IO>  PI-to-PO assignments: " << data.netlist.assignments.size() << std::endl;
+	std::cout << "IO>  PO-to-PI assignments: " << data.netlist.assignments.size() << std::endl;
 	std::cout << "IO> " << std::endl;
 
 	// sanity checks
