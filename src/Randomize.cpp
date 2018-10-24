@@ -924,8 +924,11 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 	// index by index, propagate these random inputs through the whole netlist/graph; note that walking over linked graph could not
 	// guarantee that the Boolean value of the parents is already computed, that can only be achieved when considering the indices
 	//
-	// regular nodes start with index 2
-	for (int index = 2; index < nodes[Data::STRINGS_GLOBAL_SINK].index; index++) {
+	// index 0: global source; index 1: PIs; index 2: first set of gates after the PIs; index 3: first set of wires after the first
+	// gates; and so on
+	//
+	// consider only wire/PO nodes; walk in steps of 2 starting from the index 3
+	for (int index = 3; index < nodes[Data::STRINGS_GLOBAL_SINK].index; index += 2) {
 
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Evaluate Boolean assignments -- current graph index: " << index << std::endl;
@@ -938,9 +941,10 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 			if (node.index != index) {
 				continue;
 			}
-			// also consider only wire/PO nodes
+
+			// sanity check to consider only wire/PO nodes
 			if (!(node.type == Data::Node::Type::Wire || node.type == Data::Node::Type::PO)) {
-				continue;
+				std::cout << "Randomize> Error -- the following node is neither a wire node nor a PO node: \"" << node.name << "\"" << std::endl;
 			}
 
 			if (Randomize::DBG_VERBOSE) {
