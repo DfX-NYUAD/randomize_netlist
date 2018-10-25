@@ -2,8 +2,8 @@
 
 ## SLURM parameters
 ##
-## Set partition
-#SBATCH -p parallel
+## Set partition; parallel requires at least 2 nodes (hence MPI/OpenMP)
+#SBATCH -p serial
 ## Set number of nodes to run
 #SBATCH --nodes=1
 ## Set number of tasks to run

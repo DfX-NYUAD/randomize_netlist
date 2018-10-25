@@ -15,6 +15,6 @@ do
 	sed_string="s,SBATCH -o TODO,SBATCH -o "$name".log,g"
 	sed -i "$sed_string" $script
 
-	sed_string="s,SBATCH -e TODO,SBATCH -o "$name".errors,g"
+	sed_string="s,SBATCH -e TODO,SBATCH -e "$name".log.slurm,g"
 	sed -i "$sed_string" $script
 done
