@@ -1,0 +1,76 @@
+#!/bin/bash 
+
+## SLURM parameters
+##
+## Set partition
+#SBATCH -p parallel
+## Set number of nodes to run
+#SBATCH --nodes=1
+## Set number of tasks to run
+#SBATCH --ntasks=1
+## Set number of cores per task (default is 1)
+#SBATCH --cpus-per-task=28
+## Walltime format hh:mm:ss
+#SBATCH --time=48:00:00
+## You may want to be exclusive on the compute node. 
+## Remove the extra # below if needed
+#SBATCH --exclusive
+## Output and error files
+##SBATCH -o job.%J.out
+##SBATCH -e job.%J.err
+#SBATCH -o TODO
+#SBATCH -e TODO
+
+## For OMP, set number of directly from SLURM,
+##   utilizing all the cpus allocated.
+#export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+
+# Initially purge modules (safety measure)
+module purge
+
+# Now, load modules as needed
+module load gcc
+
+## Usage of Randomize_Netlist
+#
+#IO> Usage: /home/jk176/randomize_netlist/Randomize_Netlist netlist.v cells.inputs cells.outputs cells.functions
+#[--also_output_scrambled_netlists=0 --threads=1 --intermediate_output_HD_step=0.05 --HD_target=0.5 --acceptance_ratio=0.01
+#--HD_sampling_iterations=1,000 --lazy_Boolean_evaluation=0 --consider_fanout=0 --consider_driving_strength=1 --random_op=-1]
+#IO> 
+#IO> Mandatory parameter ``netlist.v'': Netlist to be randomized
+#IO> Mandatory parameter ``cells.inputs'': Cells and their inputs
+#IO> Mandatory parameter ``cells.outputs'': Cells and their outputs
+#IO> Mandatory parameter ``cells.functions'': Cells and their output functions
+#IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: 0
+#IO> Optional parameter ``threads'': Threads for parallel runs; default value: 1
+#IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to
+#``HD_target''; default value: 0.05
+#IO> Optional parameter ``HD_target'': Target value for HD [0.0 - 1.0]; default value: 0.5
+#IO> Optional parameter ``acceptance_ratio'': Ratio for accepting some modification with inferior HD [0.0 - 1.0]; default value: 0.01
+#IO> Optional parameter ``HD_sampling_iterations'': Iterations for HD evaluation; default value: 1,000
+#IO> Optional parameter ``lazy_Boolean_evaluation'': if active, parsing of Boolean strings is short-cut whenever possible during the HD
+#evaluation, but in case there are unsupported or erroneous parts in the Boolean strings, the parsing may provide wrong HD values -- it's
+#recommend to use this feature only once at least one iteration with regular evaluation was tried; default value: 0
+#IO> Optional parameter ``consider_fanout'': when swapping outputs for a pair of gate, try to match the fan-out for those outputs; default
+#value: 0
+#IO> Optional parameter ``consider_driving_strength'': when replacing the underlying cell type, try to keep the same driving strength;
+#default value: 1
+#IO> Optional parameter ``random_op'': Integer code for the random operation to be applied; possible values: 
+#IO>  Replace underlying cell type: 1
+#IO>  Swap outputs for a pair of gates: 2
+#IO>  Swap inputs for a pair of gates: 3
+#IO>  Delete a gate: 4
+#IO>  Insert a gate: 5
+#IO>   Note that there's no default value for ``random_op'' -- in case this parameter is not provided, the above operations will be picked
+#randomly
+#IO> 
+
+# Parameters for Randomize_Netlist
+netlist=TODO
+threads=28
+intermediate_output_HD_step=0.05
+HD_sampling_iterations=112
+acceptance_ratio=0.05
+lazy_Boolean_evaluation=true
+
+$HOME/randomize_netlist/Randomize_Netlist $netlist cells.inputs cells.outputs cells.functions --threads=$threads --intermediate_output_HD_step=$intermediate_output_HD_step --HD_sampling_iterations=$HD_sampling_iterations --acceptance_ratio=$acceptance_ratio --lazy_Boolean_evaluation=$lazy_Boolean_evaluation
