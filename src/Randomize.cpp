@@ -1098,7 +1098,7 @@ void Randomize::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& no
 
 bool Randomize::evaluateString(std::string function, bool const& lazy_evaluation) {
 	std::string::size_type pos_begin, pos_end;
-	bool substring;
+	bool substring_result;
 	int inverted_bits;
 
 	if (Randomize::DBG_VERBOSE) {
@@ -1107,33 +1107,32 @@ bool Randomize::evaluateString(std::string function, bool const& lazy_evaluation
 
 	// recursively evaluate substrings within parentheses, if any
 	//
-	while (function.find('(') != std::string::npos) {
+	// init the pos_begin with the last character's position
+	pos_begin = function.length() - 1;
+	// the last '(' should not come later than two characters before the last character, e.g., "!(0)"
+	while ((pos_begin = function.find_last_of('(', pos_begin - 2)) != std::string::npos) {
 
-		pos_begin = function.find_last_of('(');
-		pos_end = function.find_first_of(')', pos_begin);
-
-		//if (Randomize::DBG_VERBOSE) {
-		//	std::cout << "DBG> pos_begin: " << pos_begin << std::endl;
-		//	std::cout << "DBG> pos_end: " << pos_end << std::endl;
-		//	std::cout << "DBG> substring before recursion: " << function.substr(pos_begin + 1, pos_end - pos_begin - 1) << std::endl;
-		//}
-
-		substring = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1), lazy_evaluation);
+		// the first ')' should not come before two characters after the '('
+		pos_end = function.find_first_of(')', pos_begin + 2);
 
 		if (Randomize::DBG_VERBOSE) {
-			std::cout << "DBG>  Result: " << substring << std::endl;
+			std::cout << "DBG>  pos_begin: " << pos_begin << std::endl;
+			std::cout << "DBG>  pos_end: " << pos_end << std::endl;
+			//std::cout << "DBG>   Substring before recursion: " << function.substr(pos_begin + 1, pos_end - pos_begin - 1) << std::endl;
 		}
 
-		//if (Randomize::DBG_VERBOSE) {
-		//	std::cout << "DBG>  Substring after recursion: " << substring << std::endl;
-		//}
+		substring_result = Randomize::evaluateString(function.substr(pos_begin + 1, pos_end - pos_begin - 1), lazy_evaluation);
+
+		if (Randomize::DBG_VERBOSE) {
+			std::cout << "DBG>  Boolean result after recursion: " << substring_result << std::endl;
+		}
 
 		// after returning from recursion, replace the substring with its Boolean value
 		//
-		//function.replace(pos_begin, pos_end - pos_begin + 1, std::to_string(substring));
+		//function.replace(pos_begin, pos_end - pos_begin + 1, std::to_string(substring_result));
 		//
 		// avoid repetitive use of std::to_string, just use hard-coded strings
-		if (substring) {
+		if (substring_result) {
 			function.replace(pos_begin, pos_end - pos_begin + 1, "1");
 		}
 		else {
@@ -1143,6 +1142,9 @@ bool Randomize::evaluateString(std::string function, bool const& lazy_evaluation
 		if (Randomize::DBG_VERBOSE) {
 			std::cout << "DBG>  Modified Boolean (sub-)string after evaluation: \"" << function << "\"" << std::endl;
 		}
+
+		// after replacing the substring with its Boolean value, reset pos_begin to the now last character's position
+		pos_begin = function.length() - 1;
 	}
 
 	// evaluate the substring
@@ -1474,7 +1476,7 @@ bool Randomize::evaluateString(std::string function, bool const& lazy_evaluation
 					return false;
 			}
 		}
-		// unknown operator
+		// unknown operator or other error
 		else {
 			std::cout << "Randomize> Error -- the following Boolean (sub-)string could not be parsed correctly: \"" << function << "\"" << std::endl;
 			return false;
