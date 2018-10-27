@@ -196,7 +196,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO>  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
 	std::cout << "IO>  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
 	std::cout << "IO>  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
-	std::cout << "IO>  Randomly any of the above operation: " << Data::parameters::DEFAULT_RANDOM_OP << std::endl;
+	std::cout << "IO>  Randomly any of the above operation: " << Data::Parameters::DEFAULT_RANDOM_OP << std::endl;
 	std::cout << "IO> " << std::endl;
 };
 
@@ -924,7 +924,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	out << "//  Swap inputs for a pair of gates: " << static_cast<unsigned>(Randomize::RandomOperation::SwapInputs) << std::endl;
 	out << "//  Delete a gate: " << static_cast<unsigned>(Randomize::RandomOperation::DeleteGate) << std::endl;
 	out << "//  Insert a gate: " << static_cast<unsigned>(Randomize::RandomOperation::InsertGate) << std::endl;
-	out << "//  Randomly any of the above operation: " << Data::parameters::DEFAULT_RANDOM_OP << std::endl;
+	out << "//  Randomly any of the above operation: " << Data::Parameters::DEFAULT_RANDOM_OP << std::endl;
 	out << "//" << std::endl;
 	out << "//" << std::endl;
 	out << "// Achieved the following HD for this randomized netlist: " << HD << std::endl;

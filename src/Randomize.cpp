@@ -167,7 +167,7 @@ void Randomize::iteration(Data& data, double& HD) {
 	// if not provided as parameter, pick operation randomly
 	// see also Randomize::RandomOperation for definition of opcodes
 	//
-	if (data.parameters.random_op == Data::parameters::DEFAULT_RANDOM_OP) {
+	if (data.parameters.random_op == Data::Parameters::DEFAULT_RANDOM_OP) {
 		op = static_cast<Randomize::RandomOperation>(Randomize::rand(1, 6));
 	}
 	else {

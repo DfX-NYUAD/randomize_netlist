@@ -27,7 +27,7 @@ class Data {
 		static const std::string STRINGS_GLOBAL_SOURCE;
 		static const std::string STRINGS_GLOBAL_SINK;
 
-		struct parameters {
+		struct Parameters {
 			bool also_output_scrambled_netlists = false;
 
 			// threads
@@ -56,7 +56,7 @@ class Data {
 		} parameters;
 
 		// POD for files names
-		struct files {
+		struct Files {
 			std::string in_netlist;
 			std::string cells_inputs;
 			std::string cells_outputs;
