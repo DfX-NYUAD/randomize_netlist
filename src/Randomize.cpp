@@ -6,6 +6,8 @@
 // string identifiers for key nodes in graph
 const std::string Data::STRINGS_GLOBAL_SOURCE = "GLOBAL_SOURCE";
 const std::string Data::STRINGS_GLOBAL_SINK = "GLOBAL_SINK";
+// string identifiers for netlist files 
+const std::string Data::STRINGS_DEFAULT_NETLIST = "netlist.v";
 // US locale for outputs; mainly for "," separator for multiples of thousand
 const std::string Data::LOCALE = "en_US.utf8";
 
@@ -62,39 +64,69 @@ int main (int argc, char** argv) {
 	// parse cells
 	IO::parseCells(data);
 
-	// parse netlist
-	IO::parseNetlist(data);
+	// parse input netlist
+	IO::parseNetlist(data.cells, data.netlist, data.files.in_netlist);
 
-	// init the original graph
+	// also parse the golden netlist, if different than the input netlist
 	//
-	// It's important to understand that the original graph CANNOT be copied for each iteration -- the pointers in the graph nodes would
-	// be based on the initial data and, hence, any modifications on the graph would impose those edits only on the underlying initial
-	// data.  Besides, the alternative of initializing the graph once and then rewriting all the pointers for a graph copy would
-	// probably not help much for performance.
+	if (data.files.in_netlist != data.files.golden_netlist) {
+
+		IO::parseNetlist(data.cells, data.golden_netlist, data.files.golden_netlist);
+
+		// sanity checks on the ports of the two netlists
+		if ((data.golden_netlist.inputs.size() != data.netlist.inputs.size()) || (data.golden_netlist.outputs.size() != data.netlist.outputs.size())) {
+			std::cout << "IO> Error: the golden netlist and the input netlist have different number of ports; check your files" << std::endl;
+			exit(1);
+		}
+		// compare actual ports
+		else {
+			for (unsigned i = 0; i < data.golden_netlist.inputs.size(); i++) {
+
+				if (data.golden_netlist.inputs[i] != data.netlist.inputs[i]) {
+					std::cout << "IO> Error: the golden netlist and the input netlist have some different input ports; check your files" << std::endl;
+					exit(1);
+				}
+			}
+			for (unsigned i = 0; i < data.golden_netlist.outputs.size(); i++) {
+
+				if (data.golden_netlist.outputs[i] != data.netlist.outputs[i]) {
+					std::cout << "IO> Error: the golden netlist and the input netlist have some different output ports; check your files" << std::endl;
+					exit(1);
+				}
+			}
+		}
+	}
+	// otherwise initialize the golden netlist as copy from the input netlist
+	else {
+		data.golden_netlist = data.netlist;
+	}
+
+	// init the original graphs
 	//
 	Randomize::initGraph(data.netlist);
+	Randomize::initGraph(data.golden_netlist);
 
-	// sanity check for cycles on original graph
+	// sanity check for cycles on original graphs
 	if (Randomize::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
-		std::cout << "Randomize> Error: original netlist contains a cycle; exiting ..." << std::endl;
+		std::cout << "Randomize> Error: input netlist contains a cycle; exiting ..." << std::endl;
+		exit(1);
+	}
+	if (Randomize::checkGraphForCycles( &(data.golden_netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
+		std::cout << "Randomize> Error: golden netlist contains a cycle; exiting ..." << std::endl;
 		exit(1);
 	}
 
-	// for original graph, determine the order of all graph nodes, from global source to global sink;
+	// for original graphs, determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
+	//
 	Randomize::determGraphOrder(data.netlist);
-
-	// also back up original netlist separately, as data.netlist will be overwritten during the iterations below
-	data.netlist_original = data.netlist;
-	// re-run initGraph and determGraphOrder, since the underlying data is a copy
-	Randomize::initGraph(data.netlist_original);
-	Randomize::determGraphOrder(data.netlist_original);
+	Randomize::determGraphOrder(data.golden_netlist);
 
 	// now, iteratively run random modifications on graph copies, until HD approaches desired value
 	//
 	iter = 1;
 	HD = 0.0;
-	current_intermediate_output_HD_step = 1;
+	current_intermediate_output_HD_step = 0;
 	// also register signal handler
 	s_catch_signals();
 	do {
@@ -106,9 +138,13 @@ int main (int argc, char** argv) {
 
 		std::cout << "Randomize>" << std::endl;
 
-		// also track intermediate results
+		// also track intermediate results; write out netlist for every ``intermediate_output_HD_step'' step
 		//
-		// write out netlist for every ``intermediate_output_HD_step'' step
+		// init current_intermediate_output_HD_step, could be larger than 1 for resuming randomization and comparing to golden,
+		// original netlist
+		if (current_intermediate_output_HD_step == 0) {
+			current_intermediate_output_HD_step = std::ceil(HD / data.parameters.intermediate_output_HD_step);
+		}
 		if (HD >= (current_intermediate_output_HD_step * data.parameters.intermediate_output_HD_step)) {
 
 			std::cout << "Randomize> Generate intermediate result #" << current_intermediate_output_HD_step << std::endl;
@@ -214,6 +250,11 @@ void Randomize::iteration(Data& data, double& HD) {
 	}
 
 	// init the local graph 
+	//
+	// It's important to understand that the original graph CANNOT be simply copied here -- the pointers in the graph nodes would be
+	// based on the initial data and, hence, any modifications on the graph would impose those edits only on the underlying initial
+	// data.  Besides, the alternative of initializing the graph once and then rewriting all the pointers for a graph copy would
+	// probably not help much for performance.
 	Randomize::initGraph(netlist);
 
 	// if required, check for loops
@@ -230,6 +271,7 @@ void Randomize::iteration(Data& data, double& HD) {
 
 	// determine the order of all graph nodes, from global source to global sink;
 	// required for subsequent HD evaluation, which is based on propagation of Boolean values from inputs to outputs
+	//
 	Randomize::determGraphOrder(netlist);
 
 	std::cout << "Randomize>  Evaluating HD of modified netlist ..." << std::endl;
@@ -245,12 +287,12 @@ void Randomize::iteration(Data& data, double& HD) {
 		// 1) pass nodes for original netlist and for local graph as copies, since the threads have to work on separate graph data 
 		// 2) HD will be summed up in the threads (using the mutex)
 		threads.emplace_back( std::thread(Randomize::evaluateHD,
-					data.netlist_original.nodes,
+					data.golden_netlist.nodes,
 					netlist.nodes,
-					std::ref(data.netlist_original.topology),
+					std::ref(data.golden_netlist.topology),
 					std::ref(netlist.topology),
-					std::ref(data.netlist_original.inputs),
-					std::ref(data.netlist_original.outputs),
+					std::ref(data.golden_netlist.inputs),
+					std::ref(data.golden_netlist.outputs),
 					std::ref(iterations_per_thread),
 					std::ref(HD_threads),
 					std::ref(m),

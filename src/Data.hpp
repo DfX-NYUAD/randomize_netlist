@@ -27,6 +27,9 @@ class Data {
 		static const std::string STRINGS_GLOBAL_SOURCE;
 		static const std::string STRINGS_GLOBAL_SINK;
 
+		// default netlist file name
+		static const std::string STRINGS_DEFAULT_NETLIST;
+
 		struct Parameters {
 			bool also_output_scrambled_netlists = false;
 
@@ -61,6 +64,10 @@ class Data {
 			std::string cells_inputs;
 			std::string cells_outputs;
 			std::string cells_functions;
+
+			// optional parameter; the reference (or "golden") netlist for HD evaluation -- providing the very original file
+			// here, and an already somewhat randomized netlist for in_netlist allows to continue randomization of in_netlist
+			std::string golden_netlist = Data::STRINGS_DEFAULT_NETLIST;
 		} files;
 
 		// PODs for cells
@@ -148,7 +155,7 @@ class Data {
 
 			// set of random names already taken
 			std::unordered_set<std::string> random_names_already_taken;
-		} netlist, netlist_original;
+		} netlist, golden_netlist;
 
 		// PODs for tracking modifications statistic
 		struct NetlistModifications {

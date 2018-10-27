@@ -62,6 +62,13 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 				exit(1);
 			}
 		}
+		else if (parameter == "--golden_netlist") {
+
+			data.files.golden_netlist = value;
+
+			// exits with error if file not found
+			IO::testFile(data.files.golden_netlist);
+		}
 		else if (parameter == "--intermediate_output_HD_step") {
 			try {
 				data.parameters.intermediate_output_HD_step = std::stod(value);
@@ -177,10 +184,16 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		arg_index++;
 	}
 
+	// finally, assign golden netlist to the same file as in_netlist, in case the parameter golden_netlist had not been provided
+	if (data.files.golden_netlist == Data::STRINGS_DEFAULT_NETLIST) {
+		data.files.golden_netlist = data.files.in_netlist;
+	}
+
 	std::cout << "IO> Parameter ``netlist.v'': " << data.files.in_netlist << std::endl;
 	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
 	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	std::cout << "IO> Parameter ``golden_netlist'': " << data.files.golden_netlist << std::endl;
 	std::cout << "IO> Parameter ``also_output_scrambled_netlists'': " << data.parameters.also_output_scrambled_netlists << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
 	std::cout << "IO> Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
@@ -202,6 +215,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 
 void IO::printHelp(Data const& data) {
 	std::cout << "IO> Usage: " << data.binary << " netlist.v cells.inputs cells.outputs cells.functions [";
+	std::cout << "--golden_netlist=" << data.files.golden_netlist << " ";
 	std::cout << "--also_output_scrambled_netlists=" << data.parameters.also_output_scrambled_netlists << " ";
 	std::cout << "--threads=" << data.parameters.threads << " ";
 	std::cout << "--intermediate_output_HD_step=" << data.parameters.intermediate_output_HD_step << " ";
@@ -217,6 +231,7 @@ void IO::printHelp(Data const& data) {
 	std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
 	std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
 	std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
+	std::cout << "IO> Optional parameter ``golden_netlist'': Golden or reference netlist used for HD evaluation -- providing the very original file here and an already (partially) randomized netlist for netlist.v allows to continue the randomization of netlist.v; default value: " << data.files.golden_netlist << std::endl;
 	std::cout << "IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: " << data.parameters.also_output_scrambled_netlists << std::endl;
 	std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
 	std::cout << "IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to ``HD_target''; default value: " << data.parameters.intermediate_output_HD_step << std::endl;
@@ -256,7 +271,7 @@ void IO::parseCells(Data& data) {
 	in.open(data.files.cells_inputs.c_str());
 
 	// 1) inputs
-	std::cout << "IO> Parsing the cells and their inputs ...";
+	std::cout << "IO> Parsing cells and their inputs ...";
 	std::cout << std::endl;
 
 	while (std::getline(in, line)) {
@@ -277,8 +292,9 @@ void IO::parseCells(Data& data) {
 		// otherwise, driving strength could not be parsed
 		else {
 			cell.type_wo_strength = cell.type;
-			std::cout << "IO>  Warning -- the driving strength of the following cell could not been parsed: ";
+			std::cout << "IO>  Error -- the driving strength of the following cell could not been parsed: ";
 			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files!" << std::endl;
+			exit(1);
 		}
 
 		// then, any number of I/O pins can follow
@@ -302,7 +318,7 @@ void IO::parseCells(Data& data) {
 	// 2) outputs
 	in.open(data.files.cells_outputs.c_str());
 
-	std::cout << "IO> Parsing the cells and their outputs ...";
+	std::cout << "IO> Parsing cells and their outputs ...";
 	std::cout << std::endl;
 
 	while (std::getline(in, line)) {
@@ -320,6 +336,12 @@ void IO::parseCells(Data& data) {
 			cell.outputs.insert(tmpstr);
 		}
 
+		// sanity check on zero outputs
+		if (cell.outputs.empty()) {
+			std::cout << "IO>  Error -- the following cell has no outputs: \"" << cell.type << "\"" << std::endl;
+			exit(1);
+		}
+
 		// update existing cells or log warning
 		//
 		auto const iter = data.cells.find(cell.type);
@@ -327,8 +349,9 @@ void IO::parseCells(Data& data) {
 			iter->second.outputs = cell.outputs;
 		}
 		else {
-			std::cout << "IO>  Warning -- the following cell has not been seen during the previous parsing operation: ";
+			std::cout << "IO>  Error -- the following cell has not been seen during the previous parsing operation: ";
 			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
+			exit(1);
 		}
 	}
 	
@@ -338,7 +361,7 @@ void IO::parseCells(Data& data) {
 	// 3) functions
 	in.open(data.files.cells_functions.c_str());
 
-	std::cout << "IO> Parsing the cells and their functions ...";
+	std::cout << "IO> Parsing cells and their functions ...";
 	std::cout << std::endl;
 
 	while (std::getline(in, line)) {
@@ -424,8 +447,9 @@ void IO::parseCells(Data& data) {
 
 			// cross check number of functions with number of output pins
 			if (iter->second.functions.size() != iter->second.outputs.size()) {
-				std::cout << "IO>  Warning -- the following cell has a different number of outputs and output functions: ";
+				std::cout << "IO>  Error -- the following cell has a different number of outputs and output functions: ";
 				std::cout << "\"" << iter->second.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
+				exit(1);
 
 			}
 
@@ -433,14 +457,16 @@ void IO::parseCells(Data& data) {
 			for (auto const& output : iter->second.outputs) {
 
 				if (iter->second.functions.find(output) == iter->second.functions.end()) {
-					std::cout << "IO>  Warning -- the following cell is missing a function for an output pin: ";
+					std::cout << "IO>  Error -- the following cell is missing a function for an output pin: ";
 					std::cout << "\"" << iter->second.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
+					exit(1);
 				}
 			}
 		}
 		else {
-			std::cout << "IO>  Warning -- the following cell has not been seen during the previous parsing operation: ";
+			std::cout << "IO>  Error -- the following cell has not been seen during the previous parsing operation: ";
 			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files for consistency!" << std::endl;
+			exit(1);
 		}
 	}
 	
@@ -485,21 +511,21 @@ void IO::parseCells(Data& data) {
 	}
 }
 
-void IO::parseNetlist(Data& data) {
+void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist, std::string const& file) {
 	std::ifstream in;
 	std::string line;
 	std::string tmpstr;
 
-	in.open(data.files.in_netlist.c_str());
+	in.open(file.c_str());
 
-	std::cout << "IO> Parsing the netlist ...";
+	std::cout << "IO> Parsing the netlist \"" << file << "\" ...";
 	std::cout << std::endl;
 
 	// 0) parse the module name
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("module") != std::string::npos && line.find("end") == std::string::npos)) {
+		if (!(line.find("module ") != std::string::npos && line.find("end") == std::string::npos)) {
 			continue;
 		}
 		// process the one relevant line
@@ -512,14 +538,14 @@ void IO::parseNetlist(Data& data) {
 			// parse the module name
 			linestream >> tmpstr;
 
-			data.netlist.module_name = tmpstr;
+			netlist.module_name = tmpstr;
 		}
 	}
 
 	// dbg log
 	//
 	if (IO::DBG) {
-		std::cout << "IO_DBG> Print module name: " << data.netlist.module_name << std::endl;
+		std::cout << "IO_DBG> Print module name: " << netlist.module_name << std::endl;
 	}
 	
 	// reset file handler
@@ -531,7 +557,7 @@ void IO::parseNetlist(Data& data) {
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("input") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("input ") != std::string::npos && line.find(";") != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -545,7 +571,7 @@ void IO::parseNetlist(Data& data) {
 			linestream >> tmpstr;
 			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
 
-			data.netlist.inputs.emplace_back(tmpstr);
+			netlist.inputs.emplace_back(tmpstr);
 		}
 	}
 
@@ -555,7 +581,7 @@ void IO::parseNetlist(Data& data) {
 
 		std::cout << "IO_DBG> Print all inputs: " << std::endl;
 
-		for (auto const& port : data.netlist.inputs) {
+		for (auto const& port : netlist.inputs) {
 
 			std::cout << "IO_DBG>  \"" << port << "\"";
 			std::cout << std::endl;
@@ -571,7 +597,7 @@ void IO::parseNetlist(Data& data) {
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("output") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("output ") != std::string::npos && line.find(";") != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -585,7 +611,7 @@ void IO::parseNetlist(Data& data) {
 			linestream >> tmpstr;
 			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
 
-			data.netlist.outputs.emplace_back(tmpstr);
+			netlist.outputs.emplace_back(tmpstr);
 		}
 	}
 
@@ -595,7 +621,7 @@ void IO::parseNetlist(Data& data) {
 
 		std::cout << "IO_DBG> Print all outputs: " << std::endl;
 
-		for (auto const& port : data.netlist.outputs) {
+		for (auto const& port : netlist.outputs) {
 
 			std::cout << "IO_DBG>  \"" << port << "\"";
 			std::cout << std::endl;
@@ -611,7 +637,7 @@ void IO::parseNetlist(Data& data) {
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("wire") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("wire ") != std::string::npos && line.find(";") != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -625,7 +651,7 @@ void IO::parseNetlist(Data& data) {
 			linestream >> tmpstr;
 			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
 
-			data.netlist.wires.emplace_back(tmpstr);
+			netlist.wires.emplace_back(tmpstr);
 		}
 	}
 
@@ -635,7 +661,7 @@ void IO::parseNetlist(Data& data) {
 
 		std::cout << "IO_DBG> Print all wires: " << std::endl;
 
-		for (auto const& wire : data.netlist.wires) {
+		for (auto const& wire : netlist.wires) {
 
 			std::cout << "IO_DBG>  \"" << wire << "\"";
 			std::cout << std::endl;
@@ -677,15 +703,15 @@ void IO::parseNetlist(Data& data) {
 				linestream >> new_gate.name;
 
 				// find related cell
-				auto iter = data.cells.find(tmpstr);
-				if (iter != data.cells.end()) {
+				auto iter = cells.find(tmpstr);
+				if (iter != cells.end()) {
 					new_gate.cell = &(iter->second);
 				}
 				// report error otherwise
 				else {
 					std::cout << "IO>  Error: the gate \"" << new_gate.name << "\" is of type \"" << tmpstr << "\"";
 					std::cout << ", but this type is not covered in your cells.inputs and cells.outputs files ..." << std::endl;
-					std::cout << "IO>  Exiting; check you library and cells.inputs/outputs files" << std::endl;
+					std::cout << "IO>  Check you library and cells.inputs/outputs files" << std::endl;
 					exit(1);
 				}
 			}
@@ -746,7 +772,7 @@ void IO::parseNetlist(Data& data) {
 				//std::cout << "STOP: " << line << std::endl;
 
 				// memorize the gate
-				data.netlist.gates.emplace_back(new_gate);
+				netlist.gates.emplace_back(new_gate);
 			}
 		}
 	}
@@ -757,7 +783,7 @@ void IO::parseNetlist(Data& data) {
 
 		std::cout << "IO_DBG> Print all gates: " << std::endl;
 
-		for (Data::Gate const& gate : data.netlist.gates) {
+		for (Data::Gate const& gate : netlist.gates) {
 
 			std::cout << "IO_DBG>  \"" << gate.cell->type << "\" \"" << gate.name << "\"";
 
@@ -785,7 +811,7 @@ void IO::parseNetlist(Data& data) {
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("assign") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("assign ") != std::string::npos && line.find(";") != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -805,7 +831,7 @@ void IO::parseNetlist(Data& data) {
 			// parse the PI name
 			linestream >> PI;
 
-			data.netlist.assignments.insert( std::make_pair(PO, PI) );
+			netlist.assignments.insert( std::make_pair(PO, PI) );
 		}
 	}
 
@@ -815,7 +841,7 @@ void IO::parseNetlist(Data& data) {
 
 		std::cout << "IO_DBG> Print all assignments: " << std::endl;
 
-		for (auto const& assignment : data.netlist.assignments) {
+		for (auto const& assignment : netlist.assignments) {
 
 			std::cout << "IO_DBG>  \"" << assignment.first << "\" = \"" << assignment.second << "\"";
 			std::cout << std::endl;
@@ -826,27 +852,27 @@ void IO::parseNetlist(Data& data) {
 	in.close();
 
 	std::cout << "IO> Done" << std::endl;
-	std::cout << "IO>  Input ports: " << data.netlist.inputs.size() << std::endl;
-	std::cout << "IO>  Output ports: " << data.netlist.outputs.size() << std::endl;
-	std::cout << "IO>  Wires: " << data.netlist.wires.size() << std::endl;
-	std::cout << "IO>  Gates: " << data.netlist.gates.size() << std::endl;
-	std::cout << "IO>  PO-to-PI assignments: " << data.netlist.assignments.size() << std::endl;
+	std::cout << "IO>  Input ports: " << netlist.inputs.size() << std::endl;
+	std::cout << "IO>  Output ports: " << netlist.outputs.size() << std::endl;
+	std::cout << "IO>  Wires: " << netlist.wires.size() << std::endl;
+	std::cout << "IO>  Gates: " << netlist.gates.size() << std::endl;
+	std::cout << "IO>  PO-to-PI assignments: " << netlist.assignments.size() << std::endl;
 	std::cout << "IO> " << std::endl;
 
 	// sanity checks
-	if (data.netlist.inputs.empty() || data.netlist.outputs.empty()) {
+	if (netlist.inputs.empty() || netlist.outputs.empty()) {
 		std::cout << "IO> No ports found; exiting ..." << std::endl;
-		std::cout << "IO> Check your netlist file \"" << data.files.in_netlist << "\"" << std::endl;
+		std::cout << "IO> Check your netlist file \"" << file << "\"" << std::endl;
 		exit(1);
 	}
-	if (data.netlist.wires.empty()) {
+	if (netlist.wires.empty()) {
 		std::cout << "IO> No wires found; exiting ..." << std::endl;
-		std::cout << "IO> Check your netlist file \"" << data.files.in_netlist << "\"" << std::endl;
+		std::cout << "IO> Check your netlist file \"" << file << "\"" << std::endl;
 		exit(1);
 	}
-	if (data.netlist.gates.empty()) {
+	if (netlist.gates.empty()) {
 		std::cout << "IO> No gates found; exiting ..." << std::endl;
-		std::cout << "IO> Check your netlist file \"" << data.files.in_netlist << "\"" << std::endl;
+		std::cout << "IO> Check your netlist file \"" << file << "\"" << std::endl;
 		exit(1);
 	}
 };
@@ -909,6 +935,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	out << "// Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
 	out << "// Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	out << "// Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	out << "// Parameter ``golden_netlist'': " << data.files.golden_netlist << std::endl;
 	out << "// Parameter ``also_output_scrambled_netlists'': " << data.parameters.also_output_scrambled_netlists << std::endl;
 	out << "// Parameter ``threads'': " << data.parameters.threads << std::endl;
 	out << "// Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
@@ -1047,9 +1074,9 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 
 	// output all assignments
 	if (scramble) {
-		out << "// assignments and their order remain as is; they are not scrambled" << std::endl;
+		out << "// assignments remain as is; they are not scrambled" << std::endl;
 	}
-	out << "// assignments are not randomized as of now; they are copied from the input netlist as is" << std::endl;
+	out << "// assignments are not randomized as of now; they are copied as is" << std::endl;
 	out << "// assignments are also not considered for HD evaluation as of now, so not randomizing them does not impact the HD results" << std::endl;
 	for (auto const& assignment : data.netlist.assignments) {
 		out << "assign " << assignment.first << " = " << assignment.second << " ;" << std::endl;
@@ -1075,7 +1102,6 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	// output gates, scrambled or not
 	for (auto const& gate: data.netlist.gates) {
 		unsigned outputs_remaining = gate.outputs.size();
-		unsigned inputs_remaining = gate.inputs.size();
 
 		out << gate.cell->type << " ";
 		out << gate.name << " ";
@@ -1083,32 +1109,17 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 		out << "(";
 
 		for (auto const& input : gate.inputs) {
+			out << "." << input.first << "(" << input.second << ")," << std::endl;
+		}
+		for (auto const& output : gate.outputs) {
 
-			// corner case: no outputs are present and this is the last input, so end port mapping already here
-			if (outputs_remaining == 0 && inputs_remaining == 1) {
-				out << "." << input.first << "(" << input.second << ")";
+			// last output pin should not have comma followed and also not start a new line
+			if (outputs_remaining == 1) {
+				out << "." << output.first << "(" << output.second << ")";
 			}
 			else {
-				out << "." << input.first << "(" << input.second << "), ";
-				inputs_remaining--;
-			}
-		}
-
-		// only one output
-		if (outputs_remaining == 1) {
-			out << "." << gate.outputs.begin()->first << "(" << gate.outputs.begin()->second << ")";
-		}
-		// multiple outputs (or zero outputs)
-		else {
-			for (auto const& output : gate.outputs) {
-
-				if (outputs_remaining == 1) {
-					out << "." << output.first << "(" << output.second << ")";
-				}
-				else {
-					out << "." << output.first << "(" << output.second << "), ";
-					outputs_remaining--;
-				}
+				out << "." << output.first << "(" << output.second << ")," << std::endl;
+				outputs_remaining--;
 			}
 		}
 

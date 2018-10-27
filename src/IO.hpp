@@ -3,8 +3,7 @@
 
 // library includes
 #include "Generic.hpp"
-// forward declarations
-class Data;
+#include "Data.hpp"
 
 /// IO handler
 class IO {
@@ -27,8 +26,15 @@ class IO {
 	public:
 		static void parseParametersFiles(Data& data, int const& argc, char** argv);
 		static void parseCells(Data& data);
-		static void parseNetlist(Data& data);
+
+		static void parseNetlist(
+				std::unordered_map<std::string, Data::Cell> const& cells,
+				Data::Netlist& netlist,
+				std::string const& file
+			);
+
 		static void writeNetlist(Data& data, double const& HD, unsigned const& iterations, bool scramble = false);
+
 };
 
 #endif
