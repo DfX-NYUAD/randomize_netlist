@@ -6,6 +6,7 @@
 // string identifiers for key nodes in graph
 const std::string Data::STRINGS_GLOBAL_SOURCE = "GLOBAL_SOURCE";
 const std::string Data::STRINGS_GLOBAL_SINK = "GLOBAL_SINK";
+const std::string Data::STRINGS_GLOBAL_DUMMY_PI = "GLOBAL_DUMMY_PI";
 // string identifiers for netlist files 
 const std::string Data::STRINGS_DEFAULT_NETLIST = "netlist.v";
 // US locale for outputs; mainly for "," separator for multiples of thousand
@@ -1746,6 +1747,13 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 				Data::Node(Data::STRINGS_GLOBAL_SINK, Data::Node::Type::Dummy)
 			));
 
+	// also add dummy PI into the graph -- this PI is used for gates without any input, e.g., TIE cells, to be able to handle them in
+	// the graph structure as well
+	netlist.nodes.insert(std::make_pair(
+				Data::STRINGS_GLOBAL_DUMMY_PI,
+				Data::Node(Data::STRINGS_GLOBAL_DUMMY_PI, Data::Node::Type::PI)
+			));
+
 	// sanity check whether nodes had been inserted / can be found
 	if (Randomize::DBG) {
 
@@ -1755,7 +1763,15 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 		if (netlist.nodes.find(Data::STRINGS_GLOBAL_SINK) == netlist.nodes.end()) {
 			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_SINK << "\"" << std::endl;
 		}
+		if (netlist.nodes.find(Data::STRINGS_GLOBAL_DUMMY_PI) == netlist.nodes.end()) {
+			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_DUMMY_PI << "\"" << std::endl;
+		}
 	}
+
+	// also add dummy PI as child to global source
+	netlist.nodes[Data::STRINGS_GLOBAL_SOURCE].children.emplace_back( &(netlist.nodes[Data::STRINGS_GLOBAL_DUMMY_PI]) );
+	// also add global source as parent for new node
+	netlist.nodes[Data::STRINGS_GLOBAL_DUMMY_PI].parents.emplace_back( &netlist.nodes[Data::STRINGS_GLOBAL_SOURCE] );
 
 	// add inputs as nodes
 	// 
@@ -1879,6 +1895,14 @@ void Randomize::initGraph(Data::Netlist& netlist) {
 				std::cout << "IO> Warning: the input pin \"" << input_iter.first << "\" of gate \"" << gate.name << "\" is dangling;" << std::endl;
 				std::cout << "IO>  the following wire/pin should have been connected, but was not found in the graph: \"" << input_iter.second << "\"" << std::endl;
 			}
+		}
+		// some gates, e.g., TIE cells, don't have inputs
+		if (gate.inputs.empty()) {
+
+			// to enable handling them in the graph, connect them to the dummy PI
+			//
+			netlist.nodes[Data::STRINGS_GLOBAL_DUMMY_PI].children.emplace_back( &(gate_node) );
+			gate_node.parents.emplace_back( &netlist.nodes[Data::STRINGS_GLOBAL_DUMMY_PI] );
 		}
 
 		// check all the outputs of the gate

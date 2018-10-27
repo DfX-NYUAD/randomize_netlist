@@ -23,9 +23,10 @@ class Data {
 		// locale for outputs
 		static const std::string LOCALE;
 
-		// names/identifier for global source/sink nodes
+		// names/identifier for global nodes
 		static const std::string STRINGS_GLOBAL_SOURCE;
 		static const std::string STRINGS_GLOBAL_SINK;
+		static const std::string STRINGS_GLOBAL_DUMMY_PI;
 
 		// default netlist file name
 		static const std::string STRINGS_DEFAULT_NETLIST;
