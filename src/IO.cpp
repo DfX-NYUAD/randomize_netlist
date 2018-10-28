@@ -282,16 +282,33 @@ void IO::parseCells(Data& data) {
 		// first is cell type
 		linestream >> cell.type;
 
-		// also memorize type and driving strength separately
-		// presume that driving strength comes after "X"
-		std::string::size_type driving_strength = cell.type.find('X');
-		if (driving_strength != std::string::npos) {
-			cell.type_wo_strength = cell.type.substr(0, driving_strength);
-			cell.strength = cell.type.substr(driving_strength);
+		// memorize type and driving strength separately; first ensure that the regexp for cell and driving strength matches
+		//
+		if (std::regex_match(cell.type, IO::REGEX_CELL_DRIVING_STRENGTH)) {
+
+			// there could be multiple "X" in the type, e.g., for XOR2_X1, so consider only the last occurrence
+			std::string::size_type start_pos = cell.type.find_last_of('X');
+
+			// in case there's a '_' right before the 'X', drop that '_' from the type
+			if (cell.type[start_pos - 1] == '_') {
+				cell.type_wo_strength = cell.type.substr(0, start_pos - 1);
+			}
+			else {
+				cell.type_wo_strength = cell.type.substr(0, start_pos);
+			}
+
+			// finally, try to parse strength as integer; skip the 'X'
+			try {
+				cell.strength = std::stoi(cell.type.substr(start_pos + 1));
+			}
+			catch (std::invalid_argument) {
+				std::cout << "IO>  Error -- the driving strength of the following cell could not been parsed: ";
+				std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files!" << std::endl;
+				exit(1);
+			}
 		}
-		// otherwise, driving strength could not be parsed
+		// if regexp fails, the cell and its driving strength could not be parsed
 		else {
-			cell.type_wo_strength = cell.type;
 			std::cout << "IO>  Error -- the driving strength of the following cell could not been parsed: ";
 			std::cout << "\"" << cell.type << "\" -- this should not happen, check your cell files!" << std::endl;
 			exit(1);
@@ -432,7 +449,7 @@ void IO::parseCells(Data& data) {
 
 			if (IO::DBG) {
 				std::cout << "IO_DBG>  \"" << iter->second.type << "\"";
-				std::cout << " (" << iter->second.type_wo_strength << "; " << iter->second.strength << ")";
+				//std::cout << " (" << iter->second.type_wo_strength << "; " << iter->second.strength << ")";
 				std::cout << " OUT = ( ";
 				for (auto const& output : iter->second.outputs) {
 					std::cout << "\"" << output << "\" ";
@@ -482,7 +499,8 @@ void IO::parseCells(Data& data) {
 		for (auto const& cell_iter : data.cells) {
 			Data::Cell const& cell = cell_iter.second;
 
-			std::cout << "IO_DBG>  \"" << cell.type << "\" --";
+			std::cout << "IO_DBG>  \"" << cell.type << "\"";
+			std::cout << " (strength: " << cell.strength << ", type_wo_strength: \"" << cell.type_wo_strength << "\") --";
 
 			std::cout << " OUT: ( ";
 			for (auto const& output : cell.outputs) {
@@ -694,8 +712,10 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 			// differentiate the different lines
 			//
-			// 1st line has driving strength for cell
-			if (line.find('X') != std::string::npos) {
+			// search for cell and driving strength (but not exclusive regex_match since other tokens will be in the same line);
+			// this will be the 1st line then
+			//
+			if (std::regex_search(line, IO::REGEX_CELL_DRIVING_STRENGTH)) {
 
 				// dbg
 				//std::cout << "START: " << line << std::endl;

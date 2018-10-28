@@ -24,5 +24,6 @@
 #include <chrono>
 #include <cmath>
 #include <signal.h>
+#include <regex>
 
 #endif

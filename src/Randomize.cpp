@@ -12,6 +12,12 @@ const std::string Data::STRINGS_DEFAULT_NETLIST = "netlist.v";
 // US locale for outputs; mainly for "," separator for multiples of thousand
 const std::string Data::LOCALE = "en_US.utf8";
 
+// regexp for cell type along with its driving strength
+//
+// regexp explained: "(.)+" one or more arbitrary character(s); "(_)?" zero or one occurrence of '_'; "(X)" one occurrence of 'X'; "[0-9]+"
+// one or more numerical character(s)
+const std::regex IO::REGEX_CELL_DRIVING_STRENGTH = std::regex("(.)+(_)?(X)[0-9]+");
+
 // signal handler
 static int s_interrupted = 0;
 static void s_signal_handler (int signal_value) {

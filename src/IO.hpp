@@ -24,6 +24,10 @@ class IO {
 
 	// public data, functions
 	public:
+		// regexp for cells along with their driving strenght
+		static const std::regex REGEX_CELL_DRIVING_STRENGTH;
+
+
 		static void parseParametersFiles(Data& data, int const& argc, char** argv);
 		static void parseCells(Data& data);
 

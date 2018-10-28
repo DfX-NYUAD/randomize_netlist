@@ -75,7 +75,7 @@ class Data {
 		struct Cell {
 			std::string type;
 			std::string type_wo_strength;
-			std::string strength;
+			int strength;
 			std::set<std::string> inputs;
 			std::set<std::string> outputs;
 			// output pin name, Boolean function of input pin names
