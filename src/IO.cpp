@@ -283,8 +283,8 @@ void IO::parseCells(Data& data) {
 		linestream >> cell.type;
 
 		// also memorize type and driving strength separately
-		// presume that driving strength comes after '_'
-		std::string::size_type driving_strength = cell.type.find('_');
+		// presume that driving strength comes after "X"
+		std::string::size_type driving_strength = cell.type.find('X');
 		if (driving_strength != std::string::npos) {
 			cell.type_wo_strength = cell.type.substr(0, driving_strength);
 			cell.strength = cell.type.substr(driving_strength);
@@ -557,7 +557,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("input ") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("input ") != std::string::npos && line.find(';') != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -569,7 +569,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 			// parse the input name, without the final ";"
 			linestream >> tmpstr;
-			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
+			tmpstr = tmpstr.substr(0, tmpstr.find(';'));
 
 			netlist.inputs.emplace_back(tmpstr);
 		}
@@ -597,7 +597,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("output ") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("output ") != std::string::npos && line.find(';') != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -609,7 +609,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 			// parse the output name, without the final ";"
 			linestream >> tmpstr;
-			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
+			tmpstr = tmpstr.substr(0, tmpstr.find(';'));
 
 			netlist.outputs.emplace_back(tmpstr);
 		}
@@ -637,7 +637,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("wire ") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("wire ") != std::string::npos && line.find(';') != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -649,7 +649,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 			// parse the wire name, without the final ";"
 			linestream >> tmpstr;
-			tmpstr = tmpstr.substr(0, tmpstr.find(";"));
+			tmpstr = tmpstr.substr(0, tmpstr.find(';'));
 
 			netlist.wires.emplace_back(tmpstr);
 		}
@@ -679,7 +679,13 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("),") != std::string::npos || line.find("));") != std::string::npos)) {
+		if ( !(
+			// each gate line has "(" and "." for some pin statement
+			(line.find('(') != std::string::npos && line.find('.') != std::string::npos)
+				&&
+			// also, each gate line has either ")," or "));" for closing the statement
+			(line.find("),") != std::string::npos || line.find("));") != std::string::npos)
+		)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -689,7 +695,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 			// differentiate the different lines
 			//
 			// 1st line has driving strength for cell
-			if (line.find("_X") != std::string::npos) {
+			if (line.find('X') != std::string::npos) {
 
 				// dbg
 				//std::cout << "START: " << line << std::endl;
@@ -725,8 +731,8 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 					// memorize the output pin and the net/pins it's connected to
 					//
-					std::string::size_type pos_begin = line.find_last_of("(") + 1;
-					std::string::size_type pos_end = line.find_first_of(")");
+					std::string::size_type pos_begin = line.find_last_of('(') + 1;
+					std::string::size_type pos_end = line.find_first_of(')');
 
 					// remove heading/trailing whitespaces, if any, using stream operation
 					std::string connected;
@@ -744,12 +750,12 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 			// check all the input pins of the related cell
 			for (auto const& pin : new_gate.cell->inputs) {
 
-				if (line.find("." + pin + "(") != std::string::npos) {
+				if (line.find('.' + pin + '(') != std::string::npos) {
 
 					// memorize the input pin and the net/pins it's connected to
 					//
-					std::string::size_type pos_begin = line.find_last_of("(") + 1;
-					std::string::size_type pos_end = line.find_first_of(")");
+					std::string::size_type pos_begin = line.find_last_of('(') + 1;
+					std::string::size_type pos_end = line.find_first_of(')');
 
 					// remove heading/trailing whitespaces, if any, using stream operation
 					std::string connected;
@@ -811,7 +817,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("assign ") != std::string::npos && line.find(";") != std::string::npos)) {
+		if (!(line.find("assign ") != std::string::npos && line.find(';') != std::string::npos)) {
 			continue;
 		}
 		// process all the relevant lines
@@ -906,8 +912,19 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	else {
 		start_pos++;
 	}
-	// assume that file type/suffice is 2 characters long (".v")
-	out_file = data.files.in_netlist.substr(start_pos, data.files.in_netlist.length() - start_pos - 2);
+	// drop file suffix from input file
+	std::string::size_type stop_pos = data.files.in_netlist.find_last_of('.');
+	// if no '.' is found, the file has no suffix
+	if (stop_pos == std::string::npos) {
+		stop_pos = data.files.in_netlist.length() - 1;
+	}
+
+	out_file = data.files.in_netlist.substr(
+			// start after "/" or, if no "/" is there, at pos 0
+			start_pos,
+			// length of substring: total_length - start - (total_length - stop)
+			data.files.in_netlist.length() - start_pos - (data.files.in_netlist.length() - stop_pos)
+		);
 	out_file += "_rand_HD_";
 	out_file += std::to_string(HD);
 	if (scramble) {
