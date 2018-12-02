@@ -12,6 +12,9 @@ do
 	sed_string="s,netlist=TODO,netlist=input/$file,g"
 	sed -i "$sed_string" $script
 
+	sed_string="s,golden_netlist=TODO,golden_netlist=input/$file,g"
+	sed -i "$sed_string" $script
+
 	sed_string="s,SBATCH -o TODO,SBATCH -o "$name".log,g"
 	sed -i "$sed_string" $script
 

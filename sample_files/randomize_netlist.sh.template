@@ -33,14 +33,16 @@ module load gcc
 
 ## Usage of Randomize_Netlist
 #
-#IO> Usage: /home/jk176/randomize_netlist/Randomize_Netlist netlist.v cells.inputs cells.outputs cells.functions
-#[--also_output_scrambled_netlists=0 --threads=1 --intermediate_output_HD_step=0.05 --HD_target=0.5 --acceptance_ratio=0.01
+#IO> Usage: ../Randomize_Netlist netlist.v cells.inputs cells.outputs cells.functions [--golden_netlist=netlist.v
+#--also_output_scrambled_netlists=0 --threads=1 --intermediate_output_HD_step=0.05 --HD_target=0.5 --acceptance_ratio=0.01
 #--HD_sampling_iterations=1,000 --lazy_Boolean_evaluation=0 --consider_fanout=0 --consider_driving_strength=1 --random_op=-1]
 #IO> 
 #IO> Mandatory parameter ``netlist.v'': Netlist to be randomized
 #IO> Mandatory parameter ``cells.inputs'': Cells and their inputs
 #IO> Mandatory parameter ``cells.outputs'': Cells and their outputs
 #IO> Mandatory parameter ``cells.functions'': Cells and their output functions
+#IO> Optional parameter ``golden_netlist'': Golden or reference netlist used for HD evaluation -- providing the very original file here and
+#an already (partially) randomized netlist for netlist.v allows to continue the randomization of netlist.v; default value: netlist.v
 #IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: 0
 #IO> Optional parameter ``threads'': Threads for parallel runs; default value: 1
 #IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to
@@ -66,11 +68,12 @@ module load gcc
 #IO> 
 
 # Parameters for Randomize_Netlist
-netlist=TODO
-threads=28
-intermediate_output_HD_step=0.05
-HD_sampling_iterations=112
 acceptance_ratio=0.05
+netlist=TODO
+golden_netlist=TODO
+threads=28
+HD_sampling_iterations=1120
+intermediate_output_HD_step=0.05
 lazy_Boolean_evaluation=true
 
-$HOME/randomize_netlist/Randomize_Netlist $netlist cells.inputs cells.outputs cells.functions --threads=$threads --intermediate_output_HD_step=$intermediate_output_HD_step --HD_sampling_iterations=$HD_sampling_iterations --acceptance_ratio=$acceptance_ratio --lazy_Boolean_evaluation=$lazy_Boolean_evaluation
+$HOME/randomize_netlist/Randomize_Netlist $netlist cells.inputs cells.outputs cells.functions --threads=$threads --intermediate_output_HD_step=$intermediate_output_HD_step --HD_sampling_iterations=$HD_sampling_iterations --acceptance_ratio=$acceptance_ratio --lazy_Boolean_evaluation=$lazy_Boolean_evaluation --golden_netlist=$golden_netlist
