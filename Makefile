@@ -17,25 +17,27 @@ COMPILER	= clang++
 #=============================================================================#
 # Compiler Options:
 #=============================================================================#
-# warnings
+## Warnings
 OPT := $(OPT) -Wall -Wextra #-Wconversion
-# C++11
+## C++11
 OPT := $(OPT) -std=c++11
-# explicit library location
+## Explicit library location, if any
 #OPT := $(OPT) -I/usr/include/i386-linux-gnu/c++/4.8
-# threading support, requires clang > 3.0
+## Threading support, requires clang > 3.0
 #OPT := $(OPT) -pthread
-# OpenMP, requires gcc
+## OpenMP, requires gcc
 #OPT := $(OPT) -fopenmp
-# gprof profiler code
+## gprof profiler code
 #OPT := $(OPT) -pg
-# 32bit binary
+## 32bit binary
 #OPT := $(OPT) -m32
-## debug symbols
-#OPT := $(OPT) -g -D_GLIBCXX_DEBUG
-# Runtime Optimization
+## Debug symbols
+OPT := $(OPT) -g
+## glibc debugging wrapper
+#OPT := $(OPT) -D_GLIBCXX_DEBUG
+## Runtime Optimization
 OPT := $(OPT) -O3
-# native tuning, since gcc 4.2
+## Native tuning, since gcc 4.2
 OPT := $(OPT) -march=native
 
 #=============================================================================#
