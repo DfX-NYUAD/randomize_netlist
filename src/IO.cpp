@@ -3,6 +3,9 @@
 #include "Data.hpp"
 #include "Randomize.hpp"
 
+// TODO use regex for various parsing/matching tasks instead of find, find_first_of, find_last_of
+//
+
 // parse program parameters and test files
 void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	int arg_index;

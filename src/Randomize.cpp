@@ -3,6 +3,9 @@
 #include "Randomize.hpp"
 #include "Data.hpp"
 
+// TODO use regex for various parsing/matching tasks instead of find, find_first_of, find_last_of
+//
+
 // string identifiers for key nodes in graph
 const std::string Data::STRINGS_GLOBAL_SOURCE = "GLOBAL_SOURCE";
 const std::string Data::STRINGS_GLOBAL_SINK = "GLOBAL_SINK";
@@ -735,6 +738,10 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 				break;
 			}
 		}
+
+		// (TODO) In cases where the deleted gate was the sole sink for some driver, that driver could also be deleted, and so
+		// forth. Such cases are not handled here, since they will not impact HD evaluation. Deletion of those drivers can also be
+		// done by re-synthesis of the randomized netlist.
 	}
 
 	if (!found) {
