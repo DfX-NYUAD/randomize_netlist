@@ -145,14 +145,14 @@ int main (int argc, char** argv) {
 
 		std::cout << "Randomize>" << std::endl;
 
-		// also track intermediate results; write out netlist for every ``intermediate_output_HD_step'' step
-		//
 		// init current_intermediate_output_HD_step, could be larger than 1 for resuming randomization and comparing to golden,
 		// original netlist
 		if (current_intermediate_output_HD_step == 0) {
 			current_intermediate_output_HD_step = std::ceil(HD / data.parameters.intermediate_output_HD_step);
 		}
-		if (HD >= (current_intermediate_output_HD_step * data.parameters.intermediate_output_HD_step)) {
+		// track intermediate results; write out netlist for every ``intermediate_output_HD_step'' step
+		//
+		if (HD > (current_intermediate_output_HD_step * data.parameters.intermediate_output_HD_step)) {
 
 			std::cout << "Randomize> Generate intermediate result #" << current_intermediate_output_HD_step << std::endl;
 			std::cout << "Randomize>" << std::endl;
