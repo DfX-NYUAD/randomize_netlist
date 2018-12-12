@@ -775,41 +775,30 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		// TODO
-		if ( !(
-			// each gate line has "(" and "." for some pin statement
-			(line.find('(') != std::string::npos && line.find('.') != std::string::npos)
-				&&
-			// also, each gate line has either ")," or "));" for closing the statement
-			(line.find("),") != std::string::npos || line.find("));") != std::string::npos)
-		)) {
+		if (statement_done && !std::regex_search(line, IO::REGEX_CELL_DRIVING_STRENGTH)) {
 			continue;
 		}
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
 
-			//TODO
-			//// ensure that line does not begin with comment markup
-			//if (line.find("//") == 0) {
-			//	continue;
-			//}
+			// ensure that line does not begin with comment markup
+			if (line.find("//") == 0) {
+				continue;
+			}
 
-			// differentiate the different lines
-			//
-			// search for cell and driving strength (but not exclusive regex_match since other tokens will be in the same line);
-			// this will be the 1st line then
-			//
-			if (std::regex_search(line, IO::REGEX_CELL_DRIVING_STRENGTH)) {
+			// parse gate name and type from very first line
+			if (statement_done) {
 
-				// dbg
+				//// dbg
 				//std::cout << "START: " << line << std::endl;
 
-				// new_gate new instance
+				// new gate instance
 				new_gate = Data::Gate();
 
 				// gate type
 				linestream >> tmpstr;
+				
 				// gate name
 				linestream >> new_gate.name;
 
@@ -829,15 +818,18 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 			// all lines contains some output/input pin and its connectivity
 			//
+
 			// check all the output pins of the related cell
 			for (auto const& pin : new_gate.cell->outputs) {
 
-				if (line.find("." + pin + "(") != std::string::npos) {
+				std::string pin_ = "." + pin;
+
+				if (line.find(pin_) != std::string::npos) {
 
 					// memorize the output pin and the net/pins it's connected to
 					//
-					std::string::size_type pos_begin = line.find_last_of('(') + 1;
-					std::string::size_type pos_end = line.find_first_of(')');
+					std::string::size_type pos_begin = line.find_first_of('(', line.find(pin_) + pin_.length()) + 1;
+					std::string::size_type pos_end = line.find_first_of(')', pos_begin);
 
 					// remove heading/trailing whitespaces, if any, using stream operation
 					std::string connected;
@@ -848,19 +840,20 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 								pin,
 								connected
 							));
-
-					break;
 				}
 			}
+
 			// check all the input pins of the related cell
 			for (auto const& pin : new_gate.cell->inputs) {
 
-				if (line.find('.' + pin + '(') != std::string::npos) {
+				std::string pin_ = "." + pin;
+
+				if (line.find(pin_) != std::string::npos) {
 
 					// memorize the input pin and the net/pins it's connected to
 					//
-					std::string::size_type pos_begin = line.find_last_of('(') + 1;
-					std::string::size_type pos_end = line.find_first_of(')');
+					std::string::size_type pos_begin = line.find_first_of('(', line.find(pin_) + pin_.length()) + 1;
+					std::string::size_type pos_end = line.find_first_of(')', pos_begin);
 
 					// remove heading/trailing whitespaces, if any, using stream operation
 					std::string connected;
@@ -871,19 +864,23 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 								pin,
 								connected
 							));
-
-					break;
 				}
 			}
 
-			// final line has "));"
-			if (line.find("));") != std::string::npos) {
+			// final line has ");"
+			if (line.find(");") != std::string::npos) {
 
-				// dbg
+				//// dbg
 				//std::cout << "STOP: " << line << std::endl;
 
 				// memorize the gate
 				netlist.gates.emplace_back(new_gate);
+
+				statement_done = true;
+			}
+			// otherwise, the statement continues and the next line will be considered as well
+			else {
+				statement_done = false;
 			}
 		}
 	}
