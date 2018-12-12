@@ -15,6 +15,8 @@ const std::string Data::STRINGS_DEFAULT_NETLIST = "netlist.v";
 // US locale for outputs; mainly for "," separator for multiples of thousand
 const std::string Data::LOCALE = "en_US.utf8";
 
+// TODO could be different for other libaries; implement more generic pattern
+//
 // regexp for cell type along with its driving strength
 //
 // regexp explained: "(.)+" one or more arbitrary character(s); "(_)?" zero or one occurrence of '_'; "(X)" one occurrence of 'X'; "[0-9]+"

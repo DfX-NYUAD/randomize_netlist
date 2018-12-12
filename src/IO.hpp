@@ -24,7 +24,7 @@ class IO {
 
 	// public data, functions
 	public:
-		// regexp for cells along with their driving strenght
+		// regexp for cells along with their driving strength
 		static const std::regex REGEX_CELL_DRIVING_STRENGTH;
 
 
