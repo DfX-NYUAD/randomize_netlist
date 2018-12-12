@@ -554,6 +554,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 		else {
 			std::istringstream linestream(line);
 
+			// ensure that line does not begin with comment markup
+			if (line.find("//") == 0) {
+				continue;
+			}
+
 			// drop "module";
 			linestream >> tmpstr;
 
@@ -588,6 +593,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
+
+			// ensure that line does not begin with comment markup
+			if (line.find("//") == 0) {
+				continue;
+			}
 
 			// drop "input" for very first line
 			if (statement_done) {
@@ -646,6 +656,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 		else {
 			std::istringstream linestream(line);
 
+			// ensure that line does not begin with comment markup
+			if (line.find("//") == 0) {
+				continue;
+			}
+
 			// drop "output" for very first line
 			if (statement_done) {
 				linestream >> tmpstr;
@@ -702,6 +717,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
+
+			// ensure that line does not begin with comment markup
+			if (line.find("//") == 0) {
+				continue;
+			}
 
 			// drop "wire" for very first line
 			if (statement_done) {
@@ -768,6 +788,12 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
+
+			//TODO
+			//// ensure that line does not begin with comment markup
+			//if (line.find("//") == 0) {
+			//	continue;
+			//}
 
 			// differentiate the different lines
 			//
@@ -905,6 +931,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 		else {
 			std::istringstream linestream(line);
 			std::string PO, PI;
+
+			// ensure that line does not begin with comment markup
+			if (line.find("//") == 0) {
+				continue;
+			}
 
 			// drop "assign";
 			linestream >> tmpstr;
