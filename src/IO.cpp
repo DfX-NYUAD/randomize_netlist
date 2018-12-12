@@ -536,6 +536,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	std::ifstream in;
 	std::string line;
 	std::string tmpstr;
+	bool statement_done;
 
 	in.open(file.c_str());
 
@@ -570,29 +571,47 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	}
 	
 	// reset file handler
-	in.clear() ;
+	in.clear();
 	in.seekg(0, in.beg);
+	// reset other flags
+	statement_done = true;
 
 	// 1) parse inputs, line by line
 	//
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("input ") != std::string::npos && line.find(';') != std::string::npos)) {
+		if (statement_done && line.find("input ") == std::string::npos) {
 			continue;
 		}
+
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
 
-			// drop "input";
-			linestream >> tmpstr;
+			// drop "input" for very first line
+			if (statement_done) {
+				linestream >> tmpstr;
+			}
 
-			// parse the input name, without the final ";"
-			linestream >> tmpstr;
-			tmpstr = tmpstr.substr(0, tmpstr.find(';'));
+			// then, any number of inputs can follow
+			while (!linestream.eof()) {
 
-			netlist.inputs.emplace_back(tmpstr);
+				linestream >> tmpstr;
+
+				// memorize input; drop last character
+				netlist.inputs.emplace_back(tmpstr.substr(0, tmpstr.length() - 1));
+
+				// check for ";" which declares that it's the final input
+				if (tmpstr.find(";") != std::string::npos) {
+					statement_done = true;
+					break;
+				}
+				// otherwise, the statement continues and, for the end of line, the next line will be considered as well
+				else {
+					statement_done = false;
+				}
+			}
 		}
 	}
 
@@ -610,29 +629,46 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	}
 	
 	// reset file handler
-	in.clear() ;
+	in.clear();
 	in.seekg(0, in.beg);
+	// reset other flags
+	statement_done = true;
 
 	// 2) parse outputs, line by line
 	//
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("output ") != std::string::npos && line.find(';') != std::string::npos)) {
+		if (statement_done && line.find("output ") == std::string::npos) {
 			continue;
 		}
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
 
-			// drop "output";
-			linestream >> tmpstr;
+			// drop "output" for very first line
+			if (statement_done) {
+				linestream >> tmpstr;
+			}
 
-			// parse the output name, without the final ";"
-			linestream >> tmpstr;
-			tmpstr = tmpstr.substr(0, tmpstr.find(';'));
+			// then, any number of outputs can follow
+			while (!linestream.eof()) {
 
-			netlist.outputs.emplace_back(tmpstr);
+				linestream >> tmpstr;
+
+				// memorize output; drop last character
+				netlist.outputs.emplace_back(tmpstr.substr(0, tmpstr.length() - 1));
+
+				// check for ";" which declares that it's the final output
+				if (tmpstr.find(";") != std::string::npos) {
+					statement_done = true;
+					break;
+				}
+				// otherwise, the statement continues and, for the end of line, the next line will be considered as well
+				else {
+					statement_done = false;
+				}
+			}
 		}
 	}
 
@@ -650,29 +686,46 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	}
 	
 	// reset file handler
-	in.clear() ;
+	in.clear();
 	in.seekg(0, in.beg);
+	// reset other flags
+	statement_done = true;
 
 	// 3) parse wires, line by line
 	//
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
-		if (!(line.find("wire ") != std::string::npos && line.find(';') != std::string::npos)) {
+		if (statement_done && line.find("wire ") == std::string::npos) {
 			continue;
 		}
 		// process all the relevant lines
 		else {
 			std::istringstream linestream(line);
 
-			// drop "wire";
-			linestream >> tmpstr;
+			// drop "wire" for very first line
+			if (statement_done) {
+				linestream >> tmpstr;
+			}
 
-			// parse the wire name, without the final ";"
-			linestream >> tmpstr;
-			tmpstr = tmpstr.substr(0, tmpstr.find(';'));
+			// then, any number of wires can follow
+			while (!linestream.eof()) {
 
-			netlist.wires.emplace_back(tmpstr);
+				linestream >> tmpstr;
+
+				// memorize wire; drop last character
+				netlist.wires.emplace_back(tmpstr.substr(0, tmpstr.length() - 1));
+
+				// check for ";" which declares that it's the final wire
+				if (tmpstr.find(";") != std::string::npos) {
+					statement_done = true;
+					break;
+				}
+				// otherwise, the statement continues and, for the end of line, the next line will be considered as well
+				else {
+					statement_done = false;
+				}
+			}
 		}
 	}
 
@@ -690,8 +743,10 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	}
 
 	// reset file handler
-	in.clear() ;
+	in.clear();
 	in.seekg(0, in.beg);
+	// reset other flags
+	statement_done = true;
 
 	// 4) parse gates, line by line
 	//
@@ -700,6 +755,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	while (std::getline(in, line)) {
 
 		// skip all the irrelevant lines
+		// TODO
 		if ( !(
 			// each gate line has "(" and "." for some pin statement
 			(line.find('(') != std::string::npos && line.find('.') != std::string::npos)
@@ -832,8 +888,10 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 	}
 	
 	// reset file handler
-	in.clear() ;
+	in.clear();
 	in.seekg(0, in.beg);
+	// reset other flags
+	statement_done = true;
 
 	// 5) parse assignments, if any, line by line
 	//
