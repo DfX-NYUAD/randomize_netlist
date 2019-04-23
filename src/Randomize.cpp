@@ -391,7 +391,6 @@ void Randomize::randomizeHelperReplaceCell(std::unordered_map<std::string, Data:
 	trials_stop = cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found) {
-		trials++;
 
 		// break handler
 		if (trials == trials_stop) {
@@ -441,6 +440,8 @@ void Randomize::randomizeHelperReplaceCell(std::unordered_map<std::string, Data:
 				}
 			}
 		}
+
+		trials++;
 	}
 
 	if (!found) {
@@ -517,7 +518,6 @@ void Randomize::randomizeHelperSwapOutputs(bool consider_fanout, Data::Netlist& 
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found) {
-		trials++;
 
 		// break handler
 		if (trials == trials_stop) {
@@ -570,6 +570,8 @@ void Randomize::randomizeHelperSwapOutputs(bool consider_fanout, Data::Netlist& 
 				std::swap(output_a->second, output_b->second);
 			}
 		}
+
+		trials++;
 	}
 
 	if (!found) {
@@ -616,7 +618,6 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 	trials_stop = netlist.gates.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found && (trials < trials_stop)) {
-		trials++;
 
 		// pick a gate randomly
 		//
@@ -685,12 +686,11 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 
 			// revise subsequent gates (sinks)
 			//
-// (TODO) for some reason, this quick access to all sinks had not been working in these sense that any modification "sink_input.second =
-// input_net" did not carry over ...
-//
-//			for (auto* sink : netlist.nodes[output.second].children) {
-//				for (auto& sink_input : sink->gate->inputs) {
-//
+ 			// (TODO) for some reason, this quick access to all sinks had not been working in these sense that any modification
+ 			// "sink_input.second = input_net" did not carry over ...
+			// for (auto* sink : netlist.nodes[output.second].children) {
+			// 	for (auto& sink_input : sink->gate->inputs) {
+			//
 			for (auto& gate : netlist.gates) {
 
 				for (auto& sink_input : gate.inputs) {
@@ -741,6 +741,8 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			}
 		}
 
+		trials++;
+
 		// (TODO) In cases where the deleted gate was the sole sink for some driver, that driver could also be deleted, and so
 		// forth. Such cases are not handled here, since they will not impact HD evaluation. Deletion of those drivers can also be
 		// done by re-synthesis of the randomized netlist.
@@ -767,7 +769,6 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 	trials_stop = cells.size() * Randomize::TRIALS_LIMIT_FACTOR;
 
 	while (!found && (trials < trials_stop)) {
-		trials++;
 
 		// randomly pick cell type 
 		//
@@ -791,6 +792,8 @@ void Randomize::randomizeHelperInsertGate(std::unordered_map<std::string, Data::
 		else {
 			found = true;
 		}
+
+		trials++;
 	}
 
 	if (!found) {
