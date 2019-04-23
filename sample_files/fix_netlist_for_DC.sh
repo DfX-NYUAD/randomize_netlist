@@ -2,7 +2,7 @@
 
 if [ $# -lt 1 ]; then
 	echo "Please provide the following parameters:"
-	echo "	1) netlist file to fix"
+	echo "	1) Netlist file to fix"
 	echo ""
 	echo "Note that the file will be backed up to file.back before editing it"
 	echo ""
