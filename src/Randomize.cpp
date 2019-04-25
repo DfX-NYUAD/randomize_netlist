@@ -714,11 +714,23 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 				Randomize::rand(0, netlist.gates.size())
 					];
 		}
-		// pick from pre-defined list
+		// pick from pre-defined list -- we have to work on strings here, not on Gate* as we're deleting gates
 		else {
-			gate = netlist.gates_to_delete[
+			std::string gate_name = netlist.gates_to_delete[
 				Randomize::rand(0, netlist.gates_to_delete.size())
 					];
+
+			gate = nullptr;
+			for (auto const& gate_ : netlist.gates) {
+				if (gate_.name == gate_name) {
+					gate = &gate_;
+					break;
+				}
+			}
+			// sanity check, not required since already during parsing we ensure that each gate_to_delete is among the gates
+			//if (gate == nullptr) {
+			//	continue;
+			//}
 		}
 
 		// sanity check against more outputs than inputs; if so, we cannot replace all outputs with some input (for such cases, we would
@@ -732,7 +744,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			continue;
 		}
 
-		// check whether that gate connects to some PI/PO; if so, ignore that gate for simplicity
+		// check whether that gate connects to both PI/PO; if so, ignore that gate for simplicity
 		//
 		// check for sinks/drivers from the current graph (not yet updated, but that is OK since this very gate modification is also
 		// not done yet)
@@ -831,15 +843,15 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 
 		// delete that gate from the gates_to_delete, if picked from there
 		//
-		// it's important to delete it first from here -- deleting after the deletion of the actual gate makes it difficult to find
-		// the correct pointer here
+		// it's important to delete it first from here -- doing so only after the deletion of the actual gate makes it difficult to
+		// find the correct pointer here, since the name of the gate is gone as well
 		if (!netlist.gates_to_delete.empty()) {
 
 			for (auto iter = netlist.gates_to_delete.begin(); iter != netlist.gates_to_delete.end(); ++iter) {
-				if ((*iter)->name == gate->name) {
+				if (*iter == gate->name) {
 
 					if (Randomize::DBG) {
-						std::cout << "DBG>      Delete the following gate from the list of gates to delete: \"" << (*iter)->name << "\"" << std::endl;
+						std::cout << "DBG>      Delete the following gate from the list of gates to delete: \"" << *iter << "\"" << std::endl;
 					}
 
 					netlist.gates_to_delete.erase(iter);
@@ -869,9 +881,20 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 	}
 
 	if (!found) {
+
 		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
-		return;
+
+		if (!netlist.gates_to_delete.empty()) {
+			std::cout << "Randomize>     Remaining gates which cannot be deleted:" << std::endl;
+			for (auto const gate : netlist.gates_to_delete) {
+
+				std::cout << "Randomize>     \"" << gate << "\"";
+				std::cout << std::endl;
+			}
+		}
 	}
+
+	return;
 }
 
 // 5) insert gate:

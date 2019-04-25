@@ -161,7 +161,7 @@ class Data {
 			std::unordered_set<std::string> random_names_already_taken;
 
 			// list of gates to delete, if any, as provided via files.gates_to_delete
-			std::vector<Gate const*> gates_to_delete;
+			std::vector<std::string> gates_to_delete;
 		} netlist, golden_netlist;
 
 		// PODs for tracking modifications statistic

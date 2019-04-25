@@ -569,7 +569,7 @@ void IO::parseGatesToDelete(Data::Netlist& netlist, std::string const& file) {
 		for (auto const& gate : netlist.gates) {
 
 			if (gate.name == tmpstr) {
-				netlist.gates_to_delete.push_back(&gate);
+				netlist.gates_to_delete.push_back(gate.name);
 				found = true;
 				break;
 			}
@@ -588,9 +588,9 @@ void IO::parseGatesToDelete(Data::Netlist& netlist, std::string const& file) {
 
 		std::cout << "IO_DBG> Print all gates to delete: " << std::endl;
 
-		for (auto const* gate : netlist.gates_to_delete) {
+		for (auto gate : netlist.gates_to_delete) {
 
-			std::cout << "IO_DBG>  \"" << gate->name << "\"";
+			std::cout << "IO_DBG>  \"" << gate << "\"";
 			std::cout << std::endl;
 		}
 	}
