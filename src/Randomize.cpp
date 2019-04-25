@@ -167,6 +167,9 @@ int main (int argc, char** argv) {
 
 				// track number of successful deletions
 				data.netlist_modifications.deletedGates++;
+
+				// re-initialize graph; required for proper checks regarding PI/PO connections of gates to delete
+				Randomize::initGraph(data.netlist);
 			}
 			// once all gates are deleted, stop run; the user might be required to cancel the run in case some gates cannot be
 			// deleted
@@ -742,7 +745,7 @@ bool Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			continue;
 		}
 
-		// TODO check whether that gate connects to both PI and PO; if so, for simplicity, ignore that gate as deleting it would result
+		// check whether that gate connects to both PI and PO; if so, for simplicity, ignore that gate as deleting it would result
 		// in direct PI-PO feed-through paths which would require dedicated handling for HD evaluation (e.g., modelling as BUF
 		// functionality)
 		//
@@ -764,7 +767,7 @@ bool Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 				break;
 			}
 		}
-		if (PI_found || PO_found) {
+		if (PI_found && PO_found) {
 			continue;
 		}
 
@@ -778,11 +781,12 @@ bool Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			std::cout << "Randomize>   Randomly picked pre-defined gate for deletion: \"" << gate->name << "\"" << std::endl;
 		}
 
-		// TODO replace the input net of any subsequent gate which was originally driven by the gate to be deleted with a randomly
+		// replace the input net of any subsequent gate which was originally driven by the gate to be deleted with a randomly
 		// selected input of that gate (could be another gate's output or a PI) -- thereby the driver/PI of the gate to be deleted
 		// becomes the driver/PI of the subsequent gate
 		//
 		std::unordered_map<std::string, std::string> inputs = gate->inputs;
+		// handled all outputs of the gate to delete separately
 		for (auto const& output : gate->outputs) {
 
 			// randomly pick one of the remaining input nets
@@ -796,6 +800,33 @@ bool Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			if (Randomize::DBG) {
 				std::cout << "DBG>     Handle the following output of the gate to be deleted: \"" << output.second << "\"" << std::endl;
 				std::cout << "DBG>      Leverage the following input of the gate to be deleted: \"" << input_net << "\"" << std::endl;
+			}
+
+			// the output is a PO -- that means that the driver of the gate to be deleted has to drive that PO now
+			if (netlist.nodes[output.second].type == Data::Node::Type::PO) {
+
+				for (auto& gate : netlist.gates) {
+
+					for (auto& driver_output : gate.outputs) {
+
+						// the output of that gates matches the input; that gate has to drive the PO
+						if (driver_output.second == input_net) {
+
+							if (Randomize::DBG) {
+								std::cout << "DBG>      Replace the following driver's output with that output above: \"";
+								std::cout << gate.name << "\"" << std::endl;
+								std::cout << "DBG>       Previous driver output: \"" << driver_output.second << "\"" << std::endl;
+							}
+
+							// replace that output net with the PO
+							driver_output.second = output.second;
+
+							if (Randomize::DBG) {
+								std::cout << "DBG>       New driver output: \"" << driver_output.second << "\"" << std::endl;
+							}
+						}
+					}
+				}
 			}
 
 			// revise subsequent gates (sinks)
@@ -886,12 +917,12 @@ bool Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		std::cout << "Randomize>    Warning: could not find any suitable gate to delete; skipping operation ..." << std::endl;
 
 		if (!netlist.gates_to_delete.empty()) {
-			std::cout << "Randomize>     Remaining gates which cannot be deleted:" << std::endl;
+			std::cout << "Randomize>     Remaining gates which cannot be deleted:";
 			for (auto const gate : netlist.gates_to_delete) {
-
-				std::cout << "Randomize>     \"" << gate << "\"";
-				std::cout << std::endl;
+				std::cout << " \"" << gate << "\"";
 			}
+			std::cout << std::endl;
+			std::cout << "Randomize>" << std::endl;
 		}
 	}
 
