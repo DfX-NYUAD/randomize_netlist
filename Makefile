@@ -31,9 +31,9 @@ OPT := $(OPT) -std=c++11
 #OPT := $(OPT) -pg
 ## 32bit binary
 #OPT := $(OPT) -m32
-## Debug symbols
-OPT := $(OPT) -g
-## glibc debugging wrapper
+### Debug symbols
+#OPT := $(OPT) -g
+### glibc debugging wrapper
 #OPT := $(OPT) -D_GLIBCXX_DEBUG
 ## Runtime Optimization
 OPT := $(OPT) -O3
