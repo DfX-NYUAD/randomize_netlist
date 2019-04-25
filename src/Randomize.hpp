@@ -16,23 +16,10 @@ class Randomize {
 
 	// private data, functions
 	private:
-		static void evaluateHD(
-				std::unordered_map<std::string, Data::Node> orig_nodes_copy,
-				std::unordered_map<std::string, Data::Node> nodes_copy,
-				std::vector< std::vector<Data::Node const*> > const& orig_nodes_topology,
-				std::vector< std::vector<Data::Node const*> > const& nodes_copy_topology,
-				std::vector<std::string> const& inputs,
-				std::vector<std::string> const& outputs,
-				unsigned const& iterations,
-				double& HD_threads,
-				std::mutex& m,
-				bool const& lazy_evaluation
-			);
 		static unsigned constexpr TRIALS_LIMIT_FACTOR = 3;
 		static void randomizeHelperReplaceCell(std::unordered_map<std::string, Data::Cell> const& cells, bool consider_driving_strength, Data::Netlist& netlist);
 		static void randomizeHelperSwapOutputs(bool consider_fanout, Data::Netlist& netlist);
 		static void randomizeHelperSwapInputs(Data::Netlist& netlist);
-		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
 		static void randomizeHelperInsertGate(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist);
 		static void evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, std::vector< std::vector<Data::Node const*> > const& nodes_topology, bool const& lazy_evaluation);
 		static void determGraphOrderRec(Data::Node const* node);
@@ -61,6 +48,21 @@ class Randomize {
 		static void initGraph(Data::Netlist& netlist);
 		static void determGraphOrder(Data::Netlist const& netlist);
 		static bool checkGraphForCycles(Data::Node const* node);
+
+		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
+
+		static void evaluateHD(
+				std::unordered_map<std::string, Data::Node> orig_nodes_copy,
+				std::unordered_map<std::string, Data::Node> nodes_copy,
+				std::vector< std::vector<Data::Node const*> > const& orig_nodes_topology,
+				std::vector< std::vector<Data::Node const*> > const& nodes_copy_topology,
+				std::vector<std::string> const& inputs,
+				std::vector<std::string> const& outputs,
+				unsigned const& iterations,
+				double& HD_threads,
+				std::mutex& m,
+				bool const& lazy_evaluation
+			);
 
 		inline static std::string randName(std::unordered_set<std::string>& names_already_taken) {
 			static const char alpha[] =

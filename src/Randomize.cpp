@@ -47,6 +47,9 @@ int main (int argc, char** argv) {
 	double HD;
 	unsigned iter;
 	unsigned current_intermediate_output_HD_step;
+	// threads
+	std::vector<std::thread> threads;
+	std::mutex m;
 
 	std::cout << std::endl;
 	std::cout << "Randomize netlist" << std::endl;
@@ -113,6 +116,9 @@ int main (int argc, char** argv) {
 		data.golden_netlist = data.netlist;
 	}
 
+	// finally, try to parse the list of gates to delete, if any
+	IO::parseGatesToDelete(data.netlist, data.files.gates_to_delete);
+
 	// init the original graphs
 	//
 	Randomize::initGraph(data.netlist);
@@ -141,12 +147,39 @@ int main (int argc, char** argv) {
 	current_intermediate_output_HD_step = 0;
 	// also register signal handler
 	s_catch_signals();
+	// flag for special mode
+	bool only_delete_gates = !data.netlist.gates_to_delete.empty();
 	do {
 
 		std::cout << "Randomize> Iteration: " << iter << std::endl;
 		std::cout << "Randomize>  Current HD: " << HD << std::endl;
 
-		Randomize::iteration(data, HD);
+		// a list of gates to delete is pre-defined; perform only those deletion operations (at once, without HD evaluation in
+		// between)
+		if (only_delete_gates) {
+
+			// keep trying to delete gates until all are handled
+			if (!data.netlist.gates_to_delete.empty()) {
+
+				unsigned gates_before = data.netlist.gates_to_delete.size();
+
+				Randomize::randomizeHelperDeleteGate(data.netlist);
+
+				// also track number of successful deletions
+				if (data.netlist.gates_to_delete.size() != gates_before) {
+					data.netlist_modifications.deletedGates++;
+				}
+			}
+			// once all gates are deleted, stop run; the user might be required to cancel the run in case some gates cannot be
+			// deleted
+			else {
+			    break;
+			}
+		}
+		// regular operation
+		else {
+			Randomize::iteration(data, HD);
+		}
 
 		std::cout << "Randomize>" << std::endl;
 
@@ -174,6 +207,60 @@ int main (int argc, char** argv) {
 	}
 	// continue until HD reaches target, or until signal is caught
 	while ((HD < data.parameters.HD_target) && (s_interrupted != 1));
+
+	// final HD evaluation run, if need be
+	if (HD == 0.0) {
+
+		std::cout << "Randomize>    Check for combinatorial loops ..." << std::endl;
+		if (Randomize::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
+			std::cout << "Randomize>     Found some loop; this netlist is invalid" << std::endl;
+		}
+		else {
+			std::cout << "Randomize>     No loop found" << std::endl;
+		}
+
+		// re-determine the graph and order
+		//
+		Randomize::initGraph(data.netlist);
+		Randomize::determGraphOrder(data.netlist);
+
+		std::cout << "Randomize>  Evaluating HD of modified netlist ..." << std::endl;
+
+		// evaluate HD in parallel
+		threads.reserve(data.parameters.threads);
+		unsigned const iterations_per_thread = std::ceil(static_cast<double>(data.parameters.HD_sampling_iterations) / data.parameters.threads);
+		double HD_threads = 0.0;
+
+		for (unsigned t = 0; t < data.parameters.threads; t++) {
+
+			// notes
+			// 1) pass nodes for original netlist and for local graph as copies, since the threads have to work on separate graph data 
+			// 2) HD will be summed up in the threads (using the mutex)
+			threads.emplace_back( std::thread(Randomize::evaluateHD,
+						data.golden_netlist.nodes,
+						data.netlist.nodes,
+						std::ref(data.golden_netlist.topology),
+						std::ref(data.netlist.topology),
+						std::ref(data.golden_netlist.inputs),
+						std::ref(data.golden_netlist.outputs),
+						std::ref(iterations_per_thread),
+						std::ref(HD_threads),
+						std::ref(m),
+						std::ref(data.parameters.lazy_Boolean_evaluation))
+					);
+		}
+
+		// join threads; the main thread execution will pause until all threads are done
+		for (std::thread& t : threads) {
+			t.join();
+		}
+		// once done, clean up all threads
+		threads.clear();
+
+		// normalize HD summed up across all threads
+		HD = (HD_threads / data.parameters.threads);
+		std::cout << "Randomize>   HD: " << HD << std::endl;
+	}
 
 	std::cout << "Randomize> Done" << std::endl;
 
@@ -610,6 +697,7 @@ void Randomize::randomizeHelperSwapInputs(Data::Netlist& netlist) {
 void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 	bool found;
 	unsigned trials, trials_stop;
+	Data::Gate const* gate;
 
 	found = false;
 	trials = 0;
@@ -618,11 +706,20 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 	while (!found && (trials < trials_stop)) {
 		trials++;
 
-		// pick a gate randomly
+		// pick a gate randomly, either from all gates or from a pre-defined list of gates to delete
 		//
-		Data::Gate& gate = netlist.gates[
-			Randomize::rand(0, netlist.gates.size())
-				];
+		// fully random
+		if (netlist.gates_to_delete.empty()) {
+			gate = &netlist.gates[
+				Randomize::rand(0, netlist.gates.size())
+					];
+		}
+		// pick from pre-defined list
+		else {
+			gate = netlist.gates_to_delete[
+				Randomize::rand(0, netlist.gates_to_delete.size())
+					];
+		}
 
 		// sanity check against more outputs than inputs; if so, we cannot replace all outputs with some input (for such cases, we would
 		// have to (randomly) select further nets from the netlist -- this is doable, but would impose checking for loops, and is
@@ -631,7 +728,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		// note that this also captures cells with zero inputs but some output, like TIE cells -- deleting them would make some
 		// other cells' inputs dangling
 		//
-		if (gate.outputs.size() > gate.inputs.size()) {
+		if (gate->outputs.size() > gate->inputs.size()) {
 			continue;
 		}
 
@@ -640,7 +737,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		// check for sinks/drivers from the current graph (not yet updated, but that is OK since this very gate modification is also
 		// not done yet)
 		bool PI_found = false;
-		for (auto const* driver : netlist.nodes[gate.name].parents) {
+		for (auto const* driver : netlist.nodes[gate->name].parents) {
 
 			if (driver->type == Data::Node::Type::PI) {
 				PI_found = true;
@@ -648,7 +745,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			}
 		}
 		bool PO_found = false;
-		for (auto const* sink : netlist.nodes[gate.name].children) {
+		for (auto const* sink : netlist.nodes[gate->name].children) {
 
 			if (sink->type == Data::Node::Type::PO) {
 				PO_found = true;
@@ -662,13 +759,18 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		// otherwise, gate is valid to delete
 		found = true;
 
-		std::cout << "Randomize>    Randomly picked gate: \"" << gate.name << "\"" << std::endl;
+		if (netlist.gates_to_delete.empty()) {
+			std::cout << "Randomize>    Randomly picked gate: \"" << gate->name << "\"" << std::endl;
+		}
+		else {
+			std::cout << "Randomize>   Randomly picked pre-defined gate for deletion: \"" << gate->name << "\"" << std::endl;
+		}
 
 		// replace the input net of any subsequent gate (which was originally driven by the gate to be deleted) with a randomly
 		// selected input of that gate -- thereby the driver of the gate to be deleted becomes the driver of the subsequent gate
 		//
-		std::unordered_map<std::string, std::string> inputs = gate.inputs;
-		for (auto const& output : gate.outputs) {
+		std::unordered_map<std::string, std::string> inputs = gate->inputs;
+		for (auto const& output : gate->outputs) {
 
 			// randomly pick one of the remaining input nets
 			auto input = inputs.begin();
@@ -685,12 +787,11 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 
 			// revise subsequent gates (sinks)
 			//
-// (TODO) for some reason, this quick access to all sinks had not been working in these sense that any modification "sink_input.second =
-// input_net" did not carry over ...
-//
-//			for (auto* sink : netlist.nodes[output.second].children) {
-//				for (auto& sink_input : sink->gate->inputs) {
-//
+			// (TODO) for some reason, this quick access to all sinks had not been working in these sense that any modification
+			// "sink_input.second = input_net" did not carry over ...
+			//for (auto* sink : netlist.nodes[output.second].children) {
+			//	for (auto& sink_input : sink->gate->inputs) {
+			//
 			for (auto& gate : netlist.gates) {
 
 				for (auto& sink_input : gate.inputs) {
@@ -730,7 +831,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 
 		// finally, delete that gate from the netlist
 		for (auto iter = netlist.gates.begin(); iter != netlist.gates.end(); ++iter) {
-			if ((*iter).name == gate.name) {
+			if ((*iter).name == gate->name) {
 
 				if (Randomize::DBG) {
 					std::cout << "DBG>      Delete the following gate from the netlist: \"" << (*iter).name << "\"" << std::endl;
@@ -738,6 +839,22 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 
 				netlist.gates.erase(iter);
 				break;
+			}
+		}
+
+		// finally, also delete that gate from the gates_to_delete, if picked from there
+		if (!netlist.gates_to_delete.empty()) {
+
+			for (auto iter = netlist.gates_to_delete.begin(); iter != netlist.gates_to_delete.end(); ++iter) {
+				if ((*iter)->name == gate->name) {
+
+					if (Randomize::DBG) {
+						std::cout << "DBG>      Delete the following gate from the list of gates to delete: \"" << (*iter)->name << "\"" << std::endl;
+					}
+
+					netlist.gates_to_delete.erase(iter);
+					break;
+				}
 			}
 		}
 

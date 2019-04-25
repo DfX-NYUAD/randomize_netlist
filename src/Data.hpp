@@ -69,6 +69,9 @@ class Data {
 			// optional parameter; the reference (or "golden") netlist for HD evaluation -- providing the very original file
 			// here, and an already somewhat randomized netlist for in_netlist allows to continue randomization of in_netlist
 			std::string golden_netlist = Data::STRINGS_DEFAULT_NETLIST;
+
+			// optional parameter; a pre-defined list of gates to delete
+			std::string gates_to_delete;
 		} files;
 
 		// PODs for cells
@@ -156,6 +159,9 @@ class Data {
 
 			// set of random names already taken
 			std::unordered_set<std::string> random_names_already_taken;
+
+			// list of gates to delete, if any, as provided via files.gates_to_delete
+			std::vector<Gate const*> gates_to_delete;
 		} netlist, golden_netlist;
 
 		// PODs for tracking modifications statistic

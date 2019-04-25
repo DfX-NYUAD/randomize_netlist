@@ -39,6 +39,8 @@ class IO {
 
 		static void writeNetlist(Data& data, double const& HD, unsigned const& iterations, bool scramble = false);
 
+		static void parseGatesToDelete(Data::Netlist& netlist, std::string const& file);
+
 };
 
 #endif

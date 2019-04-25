@@ -72,6 +72,13 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 			// exits with error if file not found
 			IO::testFile(data.files.golden_netlist);
 		}
+		else if (parameter == "--gates_to_delete") {
+
+			data.files.gates_to_delete = value;
+
+			// exits with error if file not found
+			IO::testFile(data.files.gates_to_delete);
+		}
 		else if (parameter == "--intermediate_output_HD_step") {
 			try {
 				data.parameters.intermediate_output_HD_step = std::stod(value);
@@ -197,6 +204,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
 	std::cout << "IO> Parameter ``golden_netlist'': " << data.files.golden_netlist << std::endl;
+	std::cout << "IO> Parameter ``gates_to_delete'': " << data.files.gates_to_delete << std::endl;
 	std::cout << "IO> Parameter ``also_output_scrambled_netlists'': " << data.parameters.also_output_scrambled_netlists << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
 	std::cout << "IO> Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
@@ -219,6 +227,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 void IO::printHelp(Data const& data) {
 	std::cout << "IO> Usage: " << data.binary << " netlist.v cells.inputs cells.outputs cells.functions [";
 	std::cout << "--golden_netlist=" << data.files.golden_netlist << " ";
+	std::cout << "--gates_to_delete=" << data.files.gates_to_delete << " ";
 	std::cout << "--also_output_scrambled_netlists=" << data.parameters.also_output_scrambled_netlists << " ";
 	std::cout << "--threads=" << data.parameters.threads << " ";
 	std::cout << "--intermediate_output_HD_step=" << data.parameters.intermediate_output_HD_step << " ";
@@ -235,6 +244,7 @@ void IO::printHelp(Data const& data) {
 	std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
 	std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
 	std::cout << "IO> Optional parameter ``golden_netlist'': Golden or reference netlist used for HD evaluation -- providing the very original file here and an already (partially) randomized netlist for netlist.v allows to continue the randomization of netlist.v; default value: " << data.files.golden_netlist << std::endl;
+	std::cout << "IO> Optional parameter ``gates_to_delete'': List of gates to be deleted; no default value" << std::endl;
 	std::cout << "IO> Optional parameter ``also_output_scrambled_netlists'': Besides, randomized netlists, also generate scrambled netlists; default value: " << data.parameters.also_output_scrambled_netlists << std::endl;
 	std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
 	std::cout << "IO> Optional parameter ``intermediate_output_HD_step'': Write out intermediate results/netlist, for every X step from HD 0.0 to ``HD_target''; default value: " << data.parameters.intermediate_output_HD_step << std::endl;
@@ -532,6 +542,67 @@ void IO::parseCells(Data& data) {
 	}
 }
 
+void IO::parseGatesToDelete(Data::Netlist& netlist, std::string const& file) {
+	std::ifstream in;
+	std::string tmpstr;
+
+	if (file == "")
+		return;
+
+	in.open(file.c_str());
+
+	std::cout << "IO> Parsing the list of gates to delete \"" << file << "\" ...";
+	std::cout << std::endl;
+
+	while (!in.eof()) {
+
+		// consider each word in file as gate to be deleted
+		in >> tmpstr;
+
+		// sanity check as we might have just reached the end now
+		if (in.eof()) {
+			break;
+		}
+
+		// try to find related gate
+		bool found = false;
+		for (auto const& gate : netlist.gates) {
+
+			if (gate.name == tmpstr) {
+				netlist.gates_to_delete.push_back(&gate);
+				found = true;
+				break;
+			}
+		}
+		// report error otherwise
+		if (!found) {
+			std::cout << "IO>  Error: the gate to be deleted \"" << tmpstr << "\" is not found in the netlist" << std::endl;
+			std::cout << "IO>  Check your list of gates to delete and the netlist" << std::endl;
+			exit(1);
+		}
+	}
+
+	// dbg log
+	//
+	if (IO::DBG) {
+
+		std::cout << "IO_DBG> Print all gates to delete: " << std::endl;
+
+		for (auto const* gate : netlist.gates_to_delete) {
+
+			std::cout << "IO_DBG>  \"" << gate->name << "\"";
+			std::cout << std::endl;
+		}
+	}
+
+	// finally, close file
+	in.close();
+
+	std::cout << "IO> Done" << std::endl;
+	std::cout << "IO>  Gates to delete: " << netlist.gates_to_delete.size() << std::endl;
+	std::cout << "IO> " << std::endl;
+}
+
 void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, Data::Netlist& netlist, std::string const& file) {
 	std::ifstream in;
 	std::string line;
@@ -811,7 +882,7 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 				else {
 					std::cout << "IO>  Error: the gate \"" << new_gate.name << "\" is of type \"" << tmpstr << "\"";
 					std::cout << ", but this type is not covered in your cells.inputs and cells.outputs files ..." << std::endl;
-					std::cout << "IO>  Check you library and cells.inputs/outputs files" << std::endl;
+					std::cout << "IO>  Check your library and cells.inputs/outputs files" << std::endl;
 					exit(1);
 				}
 			}
@@ -1062,6 +1133,7 @@ void IO::writeNetlist(Data& data, double const& HD, unsigned const& iterations, 
 	out << "// Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
 	out << "// Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
 	out << "// Parameter ``golden_netlist'': " << data.files.golden_netlist << std::endl;
+	out << "// Parameter ``gates_to_delete'': " << data.files.gates_to_delete << std::endl;
 	out << "// Parameter ``also_output_scrambled_netlists'': " << data.parameters.also_output_scrambled_netlists << std::endl;
 	out << "// Parameter ``threads'': " << data.parameters.threads << std::endl;
 	out << "// Parameter ``intermediate_output_HD_step'': " << data.parameters.intermediate_output_HD_step << std::endl;
