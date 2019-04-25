@@ -49,7 +49,7 @@ class Randomize {
 		static void determGraphOrder(Data::Netlist const& netlist);
 		static bool checkGraphForCycles(Data::Node const* node);
 
-		static void randomizeHelperDeleteGate(Data::Netlist& netlist);
+		static bool randomizeHelperDeleteGate(Data::Netlist& netlist);
 
 		static void evaluateHD(
 				std::unordered_map<std::string, Data::Node> orig_nodes_copy,

@@ -161,14 +161,12 @@ int main (int argc, char** argv) {
 			// keep trying to delete gates until all are handled
 			if (!data.netlist.gates_to_delete.empty()) {
 
-				unsigned gates_before = data.netlist.gates_to_delete.size();
-
-				Randomize::randomizeHelperDeleteGate(data.netlist);
-
-				// also track number of successful deletions
-				if (data.netlist.gates_to_delete.size() != gates_before) {
-					data.netlist_modifications.deletedGates++;
+				if (!Randomize::randomizeHelperDeleteGate(data.netlist)) {
+					break;
 				}
+
+				// track number of successful deletions
+				data.netlist_modifications.deletedGates++;
 			}
 			// once all gates are deleted, stop run; the user might be required to cancel the run in case some gates cannot be
 			// deleted
@@ -211,15 +209,15 @@ int main (int argc, char** argv) {
 	// final HD evaluation run, if need be
 	if (HD == 0.0) {
 
-		std::cout << "Randomize>    Check for combinatorial loops ..." << std::endl;
+		std::cout << "Randomize>  Check for combinatorial loops ..." << std::endl;
 		if (Randomize::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
-			std::cout << "Randomize>     Found some loop; this netlist is invalid" << std::endl;
+			std::cout << "Randomize>   Found some loop; this netlist is invalid" << std::endl;
 		}
 		else {
-			std::cout << "Randomize>     No loop found" << std::endl;
+			std::cout << "Randomize>   No loop found" << std::endl;
 		}
 
-		// re-determine the graph and order
+		// initialize the graph and its order; important for HD evaluation
 		//
 		Randomize::initGraph(data.netlist);
 		Randomize::determGraphOrder(data.netlist);
@@ -694,7 +692,7 @@ void Randomize::randomizeHelperSwapInputs(Data::Netlist& netlist) {
 
 // 4) delete gate:
 // 	replace all output nets with some of the input nets
-void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
+bool Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 	bool found;
 	unsigned trials, trials_stop;
 	Data::Gate const* gate;
@@ -729,7 +727,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			}
 			// sanity check, not required since already during parsing we ensure that each gate_to_delete is among the gates
 			//if (gate == nullptr) {
-			//	continue;
+			//      continue;
 			//}
 		}
 
@@ -744,7 +742,9 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			continue;
 		}
 
-		// check whether that gate connects to both PI/PO; if so, ignore that gate for simplicity
+		// TODO check whether that gate connects to both PI and PO; if so, for simplicity, ignore that gate as deleting it would result
+		// in direct PI-PO feed-through paths which would require dedicated handling for HD evaluation (e.g., modelling as BUF
+		// functionality)
 		//
 		// check for sinks/drivers from the current graph (not yet updated, but that is OK since this very gate modification is also
 		// not done yet)
@@ -778,8 +778,9 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 			std::cout << "Randomize>   Randomly picked pre-defined gate for deletion: \"" << gate->name << "\"" << std::endl;
 		}
 
-		// replace the input net of any subsequent gate (which was originally driven by the gate to be deleted) with a randomly
-		// selected input of that gate -- thereby the driver of the gate to be deleted becomes the driver of the subsequent gate
+		// TODO replace the input net of any subsequent gate which was originally driven by the gate to be deleted with a randomly
+		// selected input of that gate (could be another gate's output or a PI) -- thereby the driver/PI of the gate to be deleted
+		// becomes the driver/PI of the subsequent gate
 		//
 		std::unordered_map<std::string, std::string> inputs = gate->inputs;
 		for (auto const& output : gate->outputs) {
@@ -894,7 +895,7 @@ void Randomize::randomizeHelperDeleteGate(Data::Netlist& netlist) {
 		}
 	}
 
-	return;
+	return found;
 }
 
 // 5) insert gate:
