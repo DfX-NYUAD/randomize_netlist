@@ -119,7 +119,7 @@ void IO::printHelp(Data const& data) {
 	std::cout << "IO> Usage: " << data.binary << " netlist.v golden_netlist.v cells.inputs cells.outputs cells.functions [";
 	std::cout << "--threads=" << data.parameters.threads << " ";
 	std::cout << "--HD_sampling_iterations=" << data.parameters.HD_sampling_iterations << " ";
-	std::cout << "--lazy_Boolean_evaluation=" << data.parameters.lazy_Boolean_evaluation << " ";
+	std::cout << "--lazy_Boolean_evaluation=" << data.parameters.lazy_Boolean_evaluation << "]" << std::endl;
 	std::cout << "IO> " << std::endl;
 	std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to evaluate against golden netlist" << std::endl;
 	std::cout << "IO> Mandatory parameter ``golden_netlist.v'': Golden or reference netlist for HD evaluation" << std::endl;
