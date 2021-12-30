@@ -1,5 +1,5 @@
-#ifndef _RANDOMIZE_IO
-#define _RANDOMIZE_IO
+#ifndef _IO
+#define _IO
 
 // library includes
 #include "Generic.hpp"
@@ -36,11 +36,6 @@ class IO {
 				Data::Netlist& netlist,
 				std::string const& file
 			);
-
-		static void writeNetlist(Data& data, double const& HD, unsigned const& iterations, bool scramble = false);
-
-		static void parseGatesToDelete(Data::Netlist& netlist, std::string const& file);
-
 };
 
 #endif

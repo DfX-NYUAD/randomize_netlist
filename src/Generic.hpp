@@ -1,5 +1,5 @@
-#ifndef _RANDOMIZE_GENERIC_INCLUDES
-#define _RANDOMIZE_GENERIC_INCLUDES
+#ifndef _GENERIC_INCLUDES
+#define _GENERIC_INCLUDES
 
 // STL
 #include <iostream>

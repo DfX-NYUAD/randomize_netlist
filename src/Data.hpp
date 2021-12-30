@@ -1,5 +1,5 @@
-#ifndef _RANDOMIZE_DATA
-#define _RANDOMIZE_DATA
+#ifndef _DATA
+#define _DATA
 
 // library includes
 #include "Generic.hpp"
@@ -36,42 +36,21 @@ class Data {
 
 			// threads
 			unsigned threads = 1;
-			// step size for HD to output/generate intermediate netlist result
-			double intermediate_output_HD_step = 0.05;
-			// desired HD value
-			double HD_target = 0.5;
 			// HD sampling iterations
 			unsigned HD_sampling_iterations = 1e3;
-			// acceptance ratio for modifications with inferior HD
-			double acceptance_ratio = 1e-2;
-
-			// try to consider and keep the fan-outs when swapping outputs for a pair of gates
-			bool consider_fanout = false;
-			// try to keep the same driving strength when replacing the cell type;
-			bool consider_driving_strength = true;
 
 			// if active, Boolean evaluation is short-cut, but this can miss errors in Boolean strings
 			bool lazy_Boolean_evaluation = true;
-
-			// default is -1; pick operation randomly
-			static constexpr int DEFAULT_RANDOM_OP = -1;
-			int random_op = DEFAULT_RANDOM_OP;
 
 		} parameters;
 
 		// POD for files names
 		struct Files {
 			std::string in_netlist;
+			std::string golden_netlist;
 			std::string cells_inputs;
 			std::string cells_outputs;
 			std::string cells_functions;
-
-			// optional parameter; the reference (or "golden") netlist for HD evaluation -- providing the very original file
-			// here, and an already somewhat randomized netlist for in_netlist allows to continue randomization of in_netlist
-			std::string golden_netlist = Data::STRINGS_DEFAULT_NETLIST;
-
-			// optional parameter; a pre-defined list of gates to delete
-			std::string gates_to_delete;
 		} files;
 
 		// PODs for cells
@@ -156,22 +135,7 @@ class Data {
 			// graph topology
 			// first dimension: topological index; second dimension: all nodes belonging to that index
 			mutable std::vector< std::vector<Data::Node const*> > topology;
-
-			// set of random names already taken
-			std::unordered_set<std::string> random_names_already_taken;
-
-			// list of gates to delete, if any, as provided via files.gates_to_delete
-			std::vector<std::string> gates_to_delete;
 		} netlist, golden_netlist;
-
-		// PODs for tracking modifications statistic
-		struct NetlistModifications {
-			unsigned replacedCells = 0;
-			unsigned swappedInputs = 0;
-			unsigned swappedOutputs = 0;
-			unsigned deletedGates = 0;
-			unsigned insertedGates = 0;
-		} netlist_modifications;
 };
 
 #endif

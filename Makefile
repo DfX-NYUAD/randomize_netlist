@@ -1,16 +1,16 @@
 #=============================================================================#
 # Application Name:
 #=============================================================================#
-APP := Randomize_Netlist
+APP := HD
 #AUX := Correlation_TSC Variation_TSC Postprocessing_TSC
 ALL := $(APP) $(AUX)
 
 #=============================================================================#
 # Define Compiler Executable:
 #=============================================================================#
-COMPILER	= clang++
+#COMPILER	= clang++
 #COMPILER	= /opt/clang+llvm-3.2-x86-linux-ubuntu-12.04/bin/clang++
-#COMPILER	= g++
+COMPILER	= g++
 # Intel compiler; required for proper analysis w/ Intel VTune Amplifier XE
 #COMPILER	= /opt/intel/bin/icpc
 
