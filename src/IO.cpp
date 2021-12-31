@@ -487,8 +487,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 				linestream >> tmpstr;
 
-				// memorize input; drop last character
-				netlist.inputs.emplace_back(tmpstr.substr(0, tmpstr.length() - 1));
+				// store input
+				netlist.inputs.emplace_back(
+						// drop last character (could/should be "," or ";")
+						tmpstr.substr(0, tmpstr.length() - 1)
+					);
 
 				// check for ";" which declares that it's the final input
 				if (tmpstr.find(";") != std::string::npos) {
@@ -549,8 +552,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 				linestream >> tmpstr;
 
-				// memorize output; drop last character
-				netlist.outputs.emplace_back(tmpstr.substr(0, tmpstr.length() - 1));
+				// store output
+				netlist.outputs.emplace_back(
+						// drop last character (could/should be "," or ";")
+						tmpstr.substr(0, tmpstr.length() - 1)
+					);
 
 				// check for ";" which declares that it's the final output
 				if (tmpstr.find(";") != std::string::npos) {
@@ -611,8 +617,11 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 
 				linestream >> tmpstr;
 
-				// memorize wire; drop last character
-				netlist.wires.emplace_back(tmpstr.substr(0, tmpstr.length() - 1));
+				// store wire
+				netlist.wires.emplace_back(
+						// drop last character (could/should be "," or ";")
+						tmpstr.substr(0, tmpstr.length() - 1)
+					);
 
 				// check for ";" which declares that it's the final wire
 				if (tmpstr.find(";") != std::string::npos) {
@@ -675,19 +684,25 @@ void IO::parseNetlist(std::unordered_map<std::string, Data::Cell> const& cells, 
 				new_gate = Data::Gate();
 
 				// gate type
-				linestream >> tmpstr;
+				std::string gate_type;
+				linestream >> gate_type;
 				
-				// gate name
-				linestream >> new_gate.name;
+				// gate name, initialize w/ prefix to avoid name clashes w/ PI/PO or wire nodes, which
+				// may have same names
+				new_gate.name = "_gate__";
+
+				// parse and update gate name
+				linestream >> tmpstr;
+				new_gate.name += tmpstr;
 
 				// find related cell
-				auto iter = cells.find(tmpstr);
+				auto iter = cells.find(gate_type);
 				if (iter != cells.end()) {
 					new_gate.cell = &(iter->second);
 				}
 				// report error otherwise
 				else {
-					std::cout << "IO>  Error: the gate \"" << new_gate.name << "\" is of type \"" << tmpstr << "\"";
+					std::cout << "IO>  Error: the gate \"" << new_gate.name << "\" is of type \"" << gate_type << "\"";
 					std::cout << ", but this type is not covered in your cells.inputs and cells.outputs files ..." << std::endl;
 					std::cout << "IO>  Check your library and cells.inputs/outputs files" << std::endl;
 					exit(1);
