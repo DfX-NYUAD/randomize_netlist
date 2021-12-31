@@ -90,11 +90,11 @@ int main (int argc, char** argv) {
 
 	// sanity check for cycles on original graphs
 	if (Main::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
-		std::cout << "IO> Error: input netlist contains a cycle; exiting ..." << std::endl;
+		std::cout << "IO> Error: input netlist \"" << data.files.in_netlist << "\" contains a cycle; exiting ..." << std::endl;
 		exit(1);
 	}
 	if (Main::checkGraphForCycles( &(data.golden_netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
-		std::cout << "IO> Error: golden netlist contains a cycle; exiting ..." << std::endl;
+		std::cout << "IO> Error: golden netlist \"" << data.files.golden_netlist << "\" contains a cycle; exiting ..." << std::endl;
 		exit(1);
 	}
 
@@ -1022,28 +1022,18 @@ void Main::initGraph(Data::Netlist& netlist) {
 				Data::Node(Data::STRINGS_GLOBAL_DUMMY_PI, Data::Node::Type::PI)
 			));
 
-	// sanity check whether nodes had been inserted / can be found
-	if (Main::DBG) {
-
-		if (netlist.nodes.find(Data::STRINGS_GLOBAL_SOURCE) == netlist.nodes.end()) {
-			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_SOURCE << "\"" << std::endl;
-		}
-		if (netlist.nodes.find(Data::STRINGS_GLOBAL_SINK) == netlist.nodes.end()) {
-			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_SINK << "\"" << std::endl;
-		}
-		if (netlist.nodes.find(Data::STRINGS_GLOBAL_DUMMY_PI) == netlist.nodes.end()) {
-			std::cout << "DBG>  Error: the following node was not inserted/found: \"" << Data::STRINGS_GLOBAL_DUMMY_PI << "\"" << std::endl;
-		}
-	}
-
 	// also add dummy PI as child to global source
 	netlist.nodes[Data::STRINGS_GLOBAL_SOURCE].children.emplace_back( &(netlist.nodes[Data::STRINGS_GLOBAL_DUMMY_PI]) );
 	// also add global source as parent for new node
 	netlist.nodes[Data::STRINGS_GLOBAL_DUMMY_PI].parents.emplace_back( &netlist.nodes[Data::STRINGS_GLOBAL_SOURCE] );
 
 	// add inputs as nodes
-	// 
 	for (auto const& input : netlist.inputs) {
+
+		// sanity check whether some node w/ the same name has been inserted before
+		if (netlist.nodes.find(input) != netlist.nodes.end()) {
+			std::cout << "Main>  Error: the following node, to be inserted as PI, has been previously inserted: \"" << input << "\"" << std::endl;
+		}
 
 		netlist.nodes.insert(std::make_pair(
 					input,
@@ -1066,6 +1056,11 @@ void Main::initGraph(Data::Netlist& netlist) {
 	// add outputs as nodes
 	for (auto const& output : netlist.outputs) {
 
+		// sanity check whether some node w/ the same name has been inserted before
+		if (netlist.nodes.find(output) != netlist.nodes.end()) {
+			std::cout << "Main>  Error: the following node, to be inserted as PO, has been previously inserted: \"" << output << "\"" << std::endl;
+		}
+
 		netlist.nodes.insert(std::make_pair(
 					output,
 					Data::Node(output, Data::Node::Type::PO)
@@ -1087,6 +1082,11 @@ void Main::initGraph(Data::Netlist& netlist) {
 	// add gates as nodes
 	for (auto const& gate : netlist.gates) {
 
+		// sanity check whether some node w/ the same name has been inserted before
+		if (netlist.nodes.find(gate.name) != netlist.nodes.end()) {
+			std::cout << "Main>  Error: the following node, to be inserted as gate, has been previously inserted: \"" << gate.name << "\"" << std::endl;
+		}
+
 		netlist.nodes.insert(std::make_pair(
 					gate.name,
 					Data::Node(gate.name, Data::Node::Type::Gate)
@@ -1104,11 +1104,12 @@ void Main::initGraph(Data::Netlist& netlist) {
 	}
 
 	// add wires as nodes
-	//
-	// important to note: the data structure for netlist.nodes is std::unordered_map, that means in case a wire with the same name as a
-	// PI/PO is to be inserted, that wire will be ignored, since the PI/PO node has been already inserted above
-	//
 	for (auto const& wire : netlist.wires) {
+
+		// sanity check whether some node w/ the same name has been inserted before
+		if (netlist.nodes.find(wire) != netlist.nodes.end()) {
+			std::cout << "Main>  Error: the following node, to be inserted as wire, has been previously inserted: \"" << wire << "\"" << std::endl;
+		}
 
 		netlist.nodes.insert(std::make_pair(
 					wire,
