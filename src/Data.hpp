@@ -28,17 +28,11 @@ class Data {
 		static const std::string STRINGS_GLOBAL_SINK;
 		static const std::string STRINGS_GLOBAL_DUMMY_PI;
 
-		// default netlist file name
-		static const std::string STRINGS_DEFAULT_NETLIST;
-
 		struct Parameters {
-			bool also_output_scrambled_netlists = false;
-
 			// threads
 			unsigned threads = 1;
 			// HD sampling iterations
 			unsigned HD_sampling_iterations = 1e3;
-
 			// if active, Boolean evaluation is short-cut, but this can miss errors in Boolean strings
 			bool lazy_Boolean_evaluation = true;
 
@@ -46,14 +40,15 @@ class Data {
 
 		// POD for files names
 		struct Files {
-			std::string in_netlist;
+			std::string netlist;
 			std::string golden_netlist;
 			std::string cells_inputs;
 			std::string cells_outputs;
 			std::string cells_functions;
+			std::string input_patterns;
 		} files;
 
-		// PODs for cells
+		// POD for cells
 		struct Cell {
 			std::string type;
 			std::string type_wo_strength;
@@ -67,7 +62,7 @@ class Data {
 		// mapping: name, cell
 		std::unordered_map<std::string, Cell> cells;
 
-		// PODs for gates
+		// POD for gates
 		struct Gate {
 			std::string name;
 			Cell const* cell = nullptr;
@@ -77,7 +72,7 @@ class Data {
 			std::unordered_map<std::string, std::string> outputs;
 		};
 
-		// PODs for graph data
+		// POD for graph data
 		struct Node {
 			// name of gate, wire, or pin
 			std::string name;
@@ -114,7 +109,7 @@ class Data {
 				children(c) {}
 		};
 
-		// PODs for netlists
+		// POD for netlists
 		struct Netlist {
 			// module name
 			std::string module_name;
@@ -136,6 +131,11 @@ class Data {
 			// first dimension: topological index; second dimension: all nodes belonging to that index
 			mutable std::vector< std::vector<Data::Node const*> > topology;
 		} netlist, golden_netlist;
+
+		// input patterns, from optional parameter/argument
+		// first dimension: patterns; second dimension: bits of one pattern, expected to be in same order as
+		// Netlist.inputs
+		std::vector< std::vector<bool> > input_patterns;
 };
 
 #endif

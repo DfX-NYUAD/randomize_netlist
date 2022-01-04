@@ -10,8 +10,6 @@
 const std::string Data::STRINGS_GLOBAL_SOURCE = "GLOBAL_SOURCE";
 const std::string Data::STRINGS_GLOBAL_SINK = "GLOBAL_SINK";
 const std::string Data::STRINGS_GLOBAL_DUMMY_PI = "GLOBAL_DUMMY_PI";
-// string identifiers for netlist files 
-const std::string Data::STRINGS_DEFAULT_NETLIST = "netlist.v";
 // US locale for outputs; mainly for "," separator for multiples of thousand
 const std::string Data::LOCALE = "en_US.utf8";
 
@@ -59,10 +57,9 @@ int main (int argc, char** argv) {
 	IO::parseCells(data);
 
 	// parse input netlist
-	IO::parseNetlist(data.cells, data.netlist, data.files.in_netlist);
+	IO::parseNetlist(data.cells, data.netlist, data.files.netlist);
 
 	// parse golden netlist
-	//
 	IO::parseNetlist(data.cells, data.golden_netlist, data.files.golden_netlist);
 
 	// sanity checks on the ports of the two netlists
@@ -88,6 +85,9 @@ int main (int argc, char** argv) {
 		}
 	}
 
+	// parse input patterns
+	IO::parseInputPatterns(data);
+
 	// init the original graphs
 	//
 	Main::initGraph(data.netlist);
@@ -95,7 +95,7 @@ int main (int argc, char** argv) {
 
 	// sanity check for cycles on original graphs
 	if (Main::checkGraphForCycles( &(data.netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
-		std::cout << "IO> Error: input netlist \"" << data.files.in_netlist << "\" contains a cycle; exiting ..." << std::endl;
+		std::cout << "IO> Error: input netlist \"" << data.files.netlist << "\" contains a cycle; exiting ..." << std::endl;
 		exit(1);
 	}
 	if (Main::checkGraphForCycles( &(data.golden_netlist.nodes[Data::STRINGS_GLOBAL_SOURCE])) ) {
@@ -128,6 +128,7 @@ int main (int argc, char** argv) {
 					std::ref(data.netlist.topology),
 					std::ref(data.golden_netlist.inputs),
 					std::ref(data.golden_netlist.outputs),
+					std::ref(data.input_patterns),
 					std::ref(iterations_per_thread),
 					std::ref(HD_threads),
 					std::ref(m),
@@ -159,6 +160,7 @@ void Main::evaluateHD(
 	std::vector< std::vector<Data::Node const*> > const& nodes_copy_topology,
 	std::vector<std::string> const& inputs,
 	std::vector<std::string> const& outputs,
+	std::vector< std::vector<bool> > const& input_patterns,
 	unsigned const& iterations,
 	double& HD_threads,
 	std::mutex& m,
@@ -176,20 +178,34 @@ void Main::evaluateHD(
 	// run multiple iterations
 	//
 	HD_local = 0.0;
-	for (unsigned it = 1; it <= iterations; it++) {
+	for (unsigned it = 0; it < iterations; it++) {
 
 		if (Main::DBG) {
-			std::cout << "DBG> Iteration: " << it << "/" << iterations << std::endl;
+			std::cout << "DBG> Iteration: " << (it + 1) << "/" << iterations << std::endl;
 		}
 
-		// first, randomly assign the same bits to the input nodes in the original and the current graph
+		// first, assign the same bits to the input nodes in the original and the current graph
 		//
+		unsigned i = 0;
 		for (auto const& input : inputs) {
-			orig_nodes_copy[input].bit = nodes_copy[input].bit = static_cast<bool>(Main::rand(0, 2));
 
-			if (Main::DBG_VERBOSE) {
-				std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_nodes_copy[input].bit << std::endl;
+			// use provided patterns, if available, or random bits otherwise
+			if (input_patterns.size() > it) {
+				orig_nodes_copy[input].bit = nodes_copy[input].bit = input_patterns[it][i];
+
+				if (Main::DBG_VERBOSE) {
+					std::cout << "DBG>  Assign the following provided bit to PI \"" << input << "\": " << orig_nodes_copy[input].bit << std::endl;
+				}
 			}
+			else {
+				orig_nodes_copy[input].bit = nodes_copy[input].bit = static_cast<bool>(Main::rand(0, 2));
+
+				if (Main::DBG_VERBOSE) {
+					std::cout << "DBG>  Assign the following random bit to PI \"" << input << "\": " << orig_nodes_copy[input].bit << std::endl;
+				}
+			}
+
+			i++;
 		}
 
 		// second, evaluate all bit values for both graphs
@@ -283,16 +299,19 @@ void Main::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, 
 			//
 			auto& node = nodes[node_ptr->name];
 
-			// sanity check for nodes with current index
-			if (node.index != index) {
-				std::cout << "Main> Error -- the following node has an unexpected index: \"" << node.name << "\"" << std::endl;
-			}
+			// dbg
+			if (Main::DBG) {
+				// sanity check for nodes with current index
+				if (node.index != index) {
+					std::cout << "Main> Error -- the following node has an unexpected index: \"" << node.name << "\"" << std::endl;
+				}
 
-			// sanity check to consider only wire/PO nodes
-			if (!(node.type == Data::Node::Type::Wire || node.type == Data::Node::Type::PO)) {
-				std::cout << "Main> Error -- the following node is neither a wire node nor a PO node: \"" << node.name << "\"" << std::endl;
+				// sanity check to consider only wire/PO nodes
+				if (!(node.type == Data::Node::Type::Wire || node.type == Data::Node::Type::PO)) {
+					std::cout << "Main> Error -- the following node is neither a wire node nor a PO node: \"" << node.name << "\"" << std::endl;
+				}
 			}
-
+			// verbose dbg logging
 			if (Main::DBG_VERBOSE) {
 				if (node.type == Data::Node::Type::Wire) {
 					std::cout << "DBG>   Current wire node: " << node.name << std::endl;
@@ -303,9 +322,12 @@ void Main::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, 
 
 			// evaluate Boolean value for wire/PO from parent (driver)
 			//
-			// sanity check for single driver
-			if (node.parents.size() != 1) {
-				std::cout << "Main> Error -- the following wire/PO node has more than one parent: \"" << node.name << "\"" << std::endl;
+
+			if (Main::DBG) {
+				// sanity check for single driver
+				if (node.parents.size() != 1) {
+					std::cout << "Main> Error -- the following wire/PO node has more than one parent: \"" << node.name << "\"" << std::endl;
+				}
 			}
 
 			// parent is gate
@@ -328,10 +350,12 @@ void Main::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, 
 						}
 
 						// sanity check for multiple driver
-						if (output_found) {
-							std::cout << "Main> Error -- the following wire/PO node has more than one driver: \"" << node.name << "\"" << std::endl;
+						if (Main::DBG) {
+							if (output_found) {
+								std::cout << "Main> Error -- the following wire/PO node has more than one driver: \"" << node.name << "\"" << std::endl;
+							}
+							output_found = true;
 						}
-						output_found = true;
 
 						// copy Boolean function string
 						function = gate->cell->functions.find(output.first)->second;
@@ -395,9 +419,11 @@ void Main::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, 
 						}
 					}
 				}
-				// log in case no driver was found
-				if (!output_found) {
-					std::cout << "Main> Error -- the following wire/PO node has no driver: \"" << node.name << "\"" << std::endl;
+				if (Main::DBG) {
+					// log in case no driver was found
+					if (!output_found) {
+						std::cout << "Main> Error -- the following wire/PO node has no driver: \"" << node.name << "\"" << std::endl;
+					}
 				}
 			}
 			// parent is PI -- just copy Boolean value
@@ -406,7 +432,9 @@ void Main::evaluateHDHelper(std::unordered_map<std::string, Data::Node>& nodes, 
 			}
 			// parent is neither PI nor gate; error
 			else {
-				std::cout << "Main> Error -- the following node has an incompatible parent: \"" << node.name << "\"" << std::endl;
+				if (Main::DBG) {
+					std::cout << "Main> Error -- the following node has an incompatible parent: \"" << node.name << "\"" << std::endl;
+				}
 			}
 		}
 	}

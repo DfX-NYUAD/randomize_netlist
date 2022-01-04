@@ -20,14 +20,14 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 	}
 
 	// read in mandatory parameters
-	data.files.in_netlist = argv[1];
+	data.files.netlist = argv[1];
 	data.files.golden_netlist = argv[2];
 	data.files.cells_inputs = argv[3];
 	data.files.cells_outputs = argv[4];
 	data.files.cells_functions = argv[5];
 
 	// test input files
-	IO::testFile(data.files.in_netlist);
+	IO::testFile(data.files.netlist);
 	IO::testFile(data.files.golden_netlist);
 	IO::testFile(data.files.cells_inputs);
 	IO::testFile(data.files.cells_outputs);
@@ -56,7 +56,7 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 			std::cout << "DBG> value: \"" << value << "\"" << std::endl;
 		}
 
-		// try to interpret parameter
+		// handle parameters
 		//
 		if (parameter == "--threads") {
 			try {
@@ -89,6 +89,10 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 				exit(1);
 			}
 		}
+		else if (parameter == "--input_patterns") {
+			data.files.input_patterns = value;
+			IO::testFile(data.files.input_patterns);
+		}
 		// special parameter help
 		else if (parameter == "--help") {
 			IO::printHelp(data);
@@ -104,11 +108,12 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 		arg_index++;
 	}
 
-	std::cout << "IO> Parameter ``netlist.v'': " << data.files.in_netlist << std::endl;
+	std::cout << "IO> Parameter ``netlist'': " << data.files.netlist << std::endl;
 	std::cout << "IO> Parameter ``golden_netlist'': " << data.files.golden_netlist << std::endl;
-//	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
-//	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
-//	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	std::cout << "IO> Parameter ``cells.inputs'': " << data.files.cells_inputs << std::endl;
+	std::cout << "IO> Parameter ``cells.outputs'': " << data.files.cells_outputs << std::endl;
+	std::cout << "IO> Parameter ``cells.functions'': " << data.files.cells_functions << std::endl;
+	std::cout << "IO> Parameter ``input_patterns'': " << data.files.input_patterns << std::endl;
 	std::cout << "IO> Parameter ``threads'': " << data.parameters.threads << std::endl;
 	std::cout << "IO> Parameter ``HD_sampling_iterations'': " << data.parameters.HD_sampling_iterations << std::endl;
 	std::cout << "IO> Parameter ``lazy_Boolean_evaluation'': " << data.parameters.lazy_Boolean_evaluation << std::endl;
@@ -116,16 +121,24 @@ void IO::parseParametersFiles(Data& data, int const& argc, char** argv) {
 };
 
 void IO::printHelp(Data const& data) {
-	std::cout << "IO> Usage: " << data.binary << " netlist.v golden_netlist.v cells.inputs cells.outputs cells.functions [";
-	std::cout << "--threads=" << data.parameters.threads << " ";
-	std::cout << "--HD_sampling_iterations=" << data.parameters.HD_sampling_iterations << " ";
-	std::cout << "--lazy_Boolean_evaluation=" << data.parameters.lazy_Boolean_evaluation << "]" << std::endl;
+	std::cout << "IO> Usage: " << data.binary << " netlist.v golden_netlist.v cells.inputs cells.outputs cells.functions";
+	std::cout << " [";
+	std::cout << "--input_patterns=";
+	std::cout << " ";
+	std::cout << "--threads=" << data.parameters.threads;
+	std::cout << " ";
+	std::cout << "--HD_sampling_iterations=" << data.parameters.HD_sampling_iterations;
+	std::cout << " ";
+	std::cout << "--lazy_Boolean_evaluation=" << data.parameters.lazy_Boolean_evaluation;
+	std::cout << "]";
+	std::cout << std::endl;
 	std::cout << "IO> " << std::endl;
-	std::cout << "IO> Mandatory parameter ``netlist.v'': Netlist to evaluate against golden netlist" << std::endl;
-	std::cout << "IO> Mandatory parameter ``golden_netlist.v'': Golden or reference netlist for HD evaluation" << std::endl;
+	std::cout << "IO> Mandatory parameter ``netlist'': Netlist to evaluate against golden netlist" << std::endl;
+	std::cout << "IO> Mandatory parameter ``golden_netlist'': Golden or reference netlist for HD evaluation" << std::endl;
 	std::cout << "IO> Mandatory parameter ``cells.inputs'': Cells and their inputs" << std::endl;
 	std::cout << "IO> Mandatory parameter ``cells.outputs'': Cells and their outputs" << std::endl;
 	std::cout << "IO> Mandatory parameter ``cells.functions'': Cells and their output functions" << std::endl;
+	std::cout << "IO> Optional parameter ``input_patterns'': File containing the input patterns to be used; providing this will ignore HD_sampling_iterations" << std::endl;
 	std::cout << "IO> Optional parameter ``threads'': Threads for parallel runs; default value: " << data.parameters.threads << std::endl;
 	std::cout << "IO> Optional parameter ``HD_sampling_iterations'': Iterations for HD evaluation; default value: " << data.parameters.HD_sampling_iterations << std::endl;
 	std::cout << "IO> Optional parameter ``lazy_Boolean_evaluation'': parsing of Boolean strings is short-cut whenever possible during the HD evaluation, but in case there are unsupported or erroneous parts in the Boolean function strings, the HD values will be wrong -- it's recommend to use this feature only once regular evaluation was tried, which reports on such errors; default value: " << data.parameters.lazy_Boolean_evaluation << std::endl;
@@ -139,8 +152,94 @@ void IO::testFile(std::string const& file) {
 	if (!in.good()) {
 		std::cout << "IO> ";
 		std::cout << "No such file: " << file << std::endl;
+		std::cout << "IO> Exiting..." << std::endl;
 		exit(1);
 	}
+	in.close();
+}
+
+void IO::parseInputPatterns(Data& data) {
+	std::ifstream in;
+	std::string line;
+	std::string tmpstr;
+	unsigned line_count;
+
+	// note that file check should have been handled before (during call to IO::parseParametersFiles)
+	//
+	// but, double-check if no file was provided at all; don't rely on that being checked by the caller (main) of
+	// this function
+	if (data.files.input_patterns == "")
+		return;
+
+	in.open(data.files.input_patterns.c_str());
+
+	std::cout << "IO> Parsing input patterns ...";
+	std::cout << std::endl;
+
+	// parse patterns line by line, char by char
+	//
+	line_count = 0;
+	while (std::getline(in, line)) {
+		line_count++;
+
+		std::vector<bool> curr_pattern;
+
+		// parse character by character, representing bits
+		for (auto const character : line) {
+
+			if (character == '0') {
+				curr_pattern.emplace_back(false);
+			}
+			else if (character == '1') {
+				curr_pattern.emplace_back(true);
+			}
+			// ignore characters other than 0/1
+			else
+				continue;
+		}
+
+		// double-check that enough bits are provided for each line
+		if (curr_pattern.size() == data.netlist.inputs.size()) {
+			// store that complete pattern
+			data.input_patterns.emplace_back(curr_pattern);
+		}
+		else {
+			std::cout << "IO>  Incomplete pattern in line " << line_count << "; dropping that pattern." << std::endl;
+		}
+	}
+
+	// dbg log
+	//
+	if (IO::DBG) {
+
+		std::cout << "IO_DBG> Print all patterns: " << std::endl;
+
+		for (auto const& pattern : data.input_patterns) {
+
+			std::cout << "IO_DBG>  ";
+
+			for (auto const& character : pattern) {
+				std::cout << character;
+			}
+
+			std::cout << std::endl;
+		}
+	}
+
+	std::cout << "IO> Done" << std::endl;
+	std::cout << "IO>  Patterns: " << data.input_patterns.size() << std::endl;
+
+	// double-check any mismatch in #patterns provided and to be considered
+	if (data.input_patterns.size() < data.parameters.HD_sampling_iterations) {
+		std::cout << "IO>  Warning: fewer patterns provided than to be considered according to ``HD_sampling_iterations'' -- the remainder of missing patterns will be generated randomly." << std::endl;
+	}
+	else if (data.input_patterns.size() > data.parameters.HD_sampling_iterations) {
+		std::cout << "IO>  Warning: more patterns provided than to be considered according to ``HD_sampling_iterations'' -- only the first " << data.parameters.HD_sampling_iterations << " of the provided patterns will be used, the remainder will be ignored." << std::endl;
+	}
+
+	std::cout << "IO> " << std::endl;
+
+	// finally, close file
 	in.close();
 }
 

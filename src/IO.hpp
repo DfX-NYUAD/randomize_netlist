@@ -27,15 +27,16 @@ class IO {
 		// regexp for cells along with their driving strength
 		static const std::regex REGEX_CELL_DRIVING_STRENGTH;
 
-
 		static void parseParametersFiles(Data& data, int const& argc, char** argv);
 		static void parseCells(Data& data);
+		static void parseInputPatterns(Data& data);
 
 		static void parseNetlist(
 				std::unordered_map<std::string, Data::Cell> const& cells,
 				Data::Netlist& netlist,
 				std::string const& file
 			);
+
 };
 
 #endif

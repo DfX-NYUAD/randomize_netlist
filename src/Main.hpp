@@ -46,6 +46,7 @@ class Main {
 				std::vector< std::vector<Data::Node const*> > const& nodes_copy_topology,
 				std::vector<std::string> const& inputs,
 				std::vector<std::string> const& outputs,
+				std::vector< std::vector<bool> > const& input_patterns,
 				unsigned const& iterations,
 				double& HD_threads,
 				std::mutex& m,
