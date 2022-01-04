@@ -131,6 +131,7 @@ int main (int argc, char** argv) {
 					std::ref(data.input_patterns),
 					std::ref(data.parameters.lazy_Boolean_evaluation),
 					std::ref(iterations_per_thread),
+					std::ref(data.parameters.HD_sampling_iterations),
 					thread_ID,
 					std::ref(HD),
 					std::ref(m)
@@ -145,8 +146,8 @@ int main (int argc, char** argv) {
 	// once done, clean up all threads
 	threads.clear();
 
-	// normalize HD summed up across all threads
-	HD /= data.parameters.threads;
+	// normalize HD that is summed up across all iterations
+	HD /= data.parameters.HD_sampling_iterations;
 	std::cout << "HD>  HD: " << HD << std::endl;
 
 	// also log runtime
@@ -165,6 +166,7 @@ void Main::evaluateHD(
 	std::vector< std::vector<bool> > const& input_patterns,
 	bool const& lazy_evaluation,
 	unsigned const& iterations,
+	unsigned const& HD_sampling_iterations,
 	unsigned thread_ID,
 	double& HD,
 	std::mutex& m
@@ -183,6 +185,12 @@ void Main::evaluateHD(
 	//
 	HD_local = 0.0;
 	for (unsigned it = (thread_ID * iterations); it < ((thread_ID + 1) * iterations); it++) {
+
+		// sanity check
+		// don't overrun max iterations, may happen due to distributing of iterations across threads, which
+		// had to consider std::ceil further above (to not miss out on some iterations at all)
+		if (it >= HD_sampling_iterations)
+			continue;
 
 		if (Main::DBG) {
 			std::cout << "DBG> Iteration: " << (it + 1) << std::endl;
@@ -257,11 +265,6 @@ void Main::evaluateHD(
 		// update HD of this thread 
 		HD_local += HD_curr_iter;
 	}
-
-	// after running all iterations
-	//
-	// normalize HD
-	HD_local /= iterations;
 
 	// sum up HD across all threads, using the mutex
 	m.lock();

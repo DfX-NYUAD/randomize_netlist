@@ -49,6 +49,7 @@ class Main {
 				std::vector< std::vector<bool> > const& input_patterns,
 				bool const& lazy_evaluation,
 				unsigned const& iterations,
+				unsigned const& HD_sampling_iterations,
 				unsigned thread_ID,
 				double& HD,
 				std::mutex& m
