@@ -23,7 +23,7 @@ const std::regex IO::REGEX_CELL_DRIVING_STRENGTH = std::regex("(.)+(_)?(X)[0-9]+
 
 int main (int argc, char** argv) {
 	Data data;
-	double HD = 0.0;
+	double HD;
 	// threads
 	std::vector<std::thread> threads;
 	std::mutex m;
@@ -114,9 +114,9 @@ int main (int argc, char** argv) {
 	// evaluate HD in parallel
 	threads.reserve(data.parameters.threads);
 	unsigned const iterations_per_thread = std::ceil(static_cast<double>(data.parameters.HD_sampling_iterations) / data.parameters.threads);
-	double HD_threads = 0.0;
 
-	for (unsigned t = 0; t < data.parameters.threads; t++) {
+	HD = 0.0;
+	for (unsigned thread_ID = 0; thread_ID < data.parameters.threads; thread_ID++) {
 
 		// notes
 		// 1) pass nodes for original netlist and for local graph as copies, since the threads have to work on separate graph data 
@@ -129,22 +129,24 @@ int main (int argc, char** argv) {
 					std::ref(data.golden_netlist.inputs),
 					std::ref(data.golden_netlist.outputs),
 					std::ref(data.input_patterns),
+					std::ref(data.parameters.lazy_Boolean_evaluation),
 					std::ref(iterations_per_thread),
-					std::ref(HD_threads),
-					std::ref(m),
-					std::ref(data.parameters.lazy_Boolean_evaluation))
-				);
+					thread_ID,
+					std::ref(HD),
+					std::ref(m)
+				)
+			);
 	}
 
 	// join threads; the main thread execution will pause until all threads are done
-	for (std::thread& t : threads) {
-		t.join();
+	for (std::thread& thread : threads) {
+		thread.join();
 	}
 	// once done, clean up all threads
 	threads.clear();
 
 	// normalize HD summed up across all threads
-	HD = (HD_threads / data.parameters.threads);
+	HD /= data.parameters.threads;
 	std::cout << "HD>  HD: " << HD << std::endl;
 
 	// also log runtime
@@ -161,10 +163,11 @@ void Main::evaluateHD(
 	std::vector<std::string> const& inputs,
 	std::vector<std::string> const& outputs,
 	std::vector< std::vector<bool> > const& input_patterns,
+	bool const& lazy_evaluation,
 	unsigned const& iterations,
-	double& HD_threads,
-	std::mutex& m,
-	bool const& lazy_evaluation
+	unsigned thread_ID,
+	double& HD,
+	std::mutex& m
 ) {
 	// HD for this call/thread
 	double HD_local;
@@ -173,15 +176,16 @@ void Main::evaluateHD(
 
 	if (Main::DBG) {
 		std::cout << "DBG> Evaluate HD ..." << std::endl;
+		std::cout << "DBG>  Thread ID: " << thread_ID << std::endl;
 	}
 
-	// run multiple iterations
+	// run iterations, spread across threads
 	//
 	HD_local = 0.0;
-	for (unsigned it = 0; it < iterations; it++) {
+	for (unsigned it = (thread_ID * iterations); it < ((thread_ID + 1) * iterations); it++) {
 
 		if (Main::DBG) {
-			std::cout << "DBG> Iteration: " << (it + 1) << "/" << iterations << std::endl;
+			std::cout << "DBG> Iteration: " << (it + 1) << std::endl;
 		}
 
 		// first, assign the same bits to the input nodes in the original and the current graph
@@ -262,7 +266,7 @@ void Main::evaluateHD(
 	// sum up HD across all threads, using the mutex
 	m.lock();
 
-	HD_threads += HD_local;
+	HD += HD_local;
 
 	//// also log the current, local HD
 	//std::cout << "Main>  HD for current thread: " << HD_local << std::endl;

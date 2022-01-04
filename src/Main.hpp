@@ -47,10 +47,11 @@ class Main {
 				std::vector<std::string> const& inputs,
 				std::vector<std::string> const& outputs,
 				std::vector< std::vector<bool> > const& input_patterns,
+				bool const& lazy_evaluation,
 				unsigned const& iterations,
-				double& HD_threads,
-				std::mutex& m,
-				bool const& lazy_evaluation
+				unsigned thread_ID,
+				double& HD,
+				std::mutex& m
 			);
 };
 
