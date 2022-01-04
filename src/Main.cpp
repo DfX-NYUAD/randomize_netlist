@@ -37,6 +37,11 @@ int main (int argc, char** argv) {
 	// track start time
 	auto start_time = std::chrono::system_clock::now();
 
+	// init random generator with high-resolution timing seed
+	auto now = std::chrono::high_resolution_clock::now();
+	auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+	std::srand(nanos);
+
 	// try to set locale
 	try {
 		std::cout.imbue(std::locale(std::string(Data::LOCALE).c_str()));
