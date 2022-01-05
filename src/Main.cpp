@@ -220,6 +220,14 @@ void Main::evaluateHD(
 			i++;
 		}
 
+		if (Main::DBG) {
+			std::cout << "DBG>  Input pattern: ";
+			for (auto const& input : inputs) {
+				std::cout << orig_nodes_copy[input].bit;
+			}
+			std::cout << std::endl;
+		}
+
 		// second, evaluate all bit values for both graphs
 		//
 		if (Main::DBG) {
@@ -251,10 +259,30 @@ void Main::evaluateHD(
 			// dbg log of output bits
 			if (Main::DBG_VERBOSE) {
 
-				std::cout << "DBG>  Original graph, PO \"" << output << "\": " << orig_nodes_copy[output].bit << std::endl;
-				std::cout << "DBG>  Current graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
+				std::cout << "DBG>  Golden list graph, PO \"" << output << "\": " << orig_nodes_copy[output].bit << std::endl;
+				std::cout << "DBG>  Other netlist graph, PO \"" << output << "\": " << nodes_copy[output].bit << std::endl;
 			}
 		}
+
+		if (Main::DBG) {
+
+			std::cout << "DBG>  Output pattern, golden netlist: ";
+			for (auto const& output : outputs) {
+				std::cout << orig_nodes_copy[output].bit;
+			}
+			std::cout << std::endl;
+
+			std::cout << "DBG>  Output pattern, other netlist:  ";
+			for (auto const& output : outputs) {
+				std::cout << nodes_copy[output].bit;
+			}
+			std::cout << std::endl;
+		}
+
+		if (Main::DBG) {
+			std::cout << "DBG> Absolute HD for current iteration: " << HD_curr_iter << std::endl;
+		}
+
 		// HD of this current iteration
 		HD_curr_iter /= outputs.size();
 
